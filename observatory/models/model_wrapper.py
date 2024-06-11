@@ -13,7 +13,7 @@ class ModelWrapper(ABC):
 
         self.model = self.get_model()
         self.tokenizer = self.get_tokenizer()
-        self.get_max_input_size = self.get_max_input_size()
+        self.max_input_size = self.get_max_input_size()
 
     @abstractmethod
     def get_model(self):
