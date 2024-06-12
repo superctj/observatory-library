@@ -74,7 +74,7 @@ class BERTModelWrapper(ModelWrapper):
 
         return input_tokens, cls_positions
 
-    def get_column_embeddings(
+    def infer_column_embeddings(
         self, tables: pd.DataFrame, batch_size: int
     ) -> list[list[torch.Tensor]]:
         """Column embedding inference."""
@@ -126,3 +126,12 @@ class BERTModelWrapper(ModelWrapper):
                     all_embeddings.append(cls_embeddings)
 
         return all_embeddings
+
+    def infer_row_embeddings(self):
+        pass
+
+    def infer_table_embeddings(self):
+        pass
+
+    def infer_cell_embeddings(self):
+        pass
