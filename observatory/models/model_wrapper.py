@@ -35,17 +35,17 @@ class ModelWrapper(ABC):
         pass
 
     @abstractmethod
-    def get_column_embeddings(self):
+    def infer_column_embeddings(self):
         pass
 
     @abstractmethod
-    def get_row_embeddings(self):
+    def infer_row_embeddings(self):
         pass
 
     @abstractmethod
-    def get_table_embeddings(self):
+    def infer_table_embeddings(self):
         pass
 
     @abstractmethod
-    def get_cell_embeddings(self):
+    def infer_cell_embeddings(self):
         pass
