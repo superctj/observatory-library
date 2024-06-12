@@ -85,7 +85,7 @@ class MaxRowsPreprocessor(PreprocessingWrapper):
             mid = (low + high + 1) // 2  # middle point
             sample_table = table[:mid]  # sample table with `mid` rows
 
-            if self.is_fit(sample_table, self.tokenizer, self.max_input_size):
+            if self.is_fit(sample_table):
                 low = mid  # if it fits, try with more rows
             else:
                 high = mid - 1  # if it doesn't fit, try with fewer rows
