@@ -10,8 +10,8 @@ def convert_table_to_col_list(table: pd.DataFrame) -> list[str]:
         table: A pandas DataFrame representing a table.
 
     Returns:
-        A list of columns where each column is represented as a string
-        consisting of the column header followed by column values.
+        A list of rows where each row is represented as a string
+        consisting of column headers followed by column values.
     """
 
     cols = []
@@ -24,7 +24,7 @@ def convert_table_to_col_list(table: pd.DataFrame) -> list[str]:
     return cols
 
 
-class MaxRowsPreprocessor(PreprocessingWrapper):
+class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
     """Columnwise preprocessing for BERT-like models. Each table is serialized
     to a string as follows:
 

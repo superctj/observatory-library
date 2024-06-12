@@ -5,7 +5,7 @@ import torch
 
 from observatory.datasets.wikitables import WikiTables
 from observatory.models.bert import BERTModelWrapper
-from observatory.preprocessing.columnwise import MaxRowsPreprocessor
+from observatory.preprocessing.columnwise import ColumnwiseMaxRowsPreprocessor
 
 
 class TestBERTInferColumnEmbeddings(unittest.TestCase):
@@ -14,7 +14,7 @@ class TestBERTInferColumnEmbeddings(unittest.TestCase):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.model_wrapper = BERTModelWrapper(model_name, device)
-        self.max_rows_preprocessor = MaxRowsPreprocessor(
+        self.max_rows_preprocessor = ColumnwiseMaxRowsPreprocessor(
             tokenizer=self.model_wrapper.tokenizer,
             max_input_size=self.model_wrapper.max_input_size,
         )
