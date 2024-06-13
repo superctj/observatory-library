@@ -69,9 +69,6 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
 
         Args:
             table: A pandas DataFrame representing a table.
-            tokenizer: The tokenizer to use.
-            max_input_size: The maximum model input size.
-            model_name: The name of the model.
 
         Returns:
             The maximum number of rows that fit within the maximum model input
@@ -94,6 +91,16 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
         return low
 
     def columnwise_truncation(self, tables: list[pd.DataFrame]):
+        """Truncate tables based on columnwise serialization to fit within the
+        maximum model input size.
+
+        Args:
+            tables: A list of tables.
+
+        Returns:
+            truncated_tables: A list of truncated tables.
+        """
+
         truncated_tables = []
 
         for tbl in tables:
