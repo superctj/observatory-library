@@ -90,7 +90,7 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
         # When low == high, we found the maximum number of rows
         return low
 
-    def columnwise_truncation(self, tables: list[pd.DataFrame]):
+    def truncate_columnwise(self, tables: list[pd.DataFrame]):
         """Truncate tables based on columnwise serialization to fit within the
         maximum model input size.
 
