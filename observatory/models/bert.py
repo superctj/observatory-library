@@ -6,6 +6,10 @@ from transformers import BertModel, BertTokenizer
 from observatory.models.model_wrapper import ModelWrapper
 from observatory.preprocessing.columnwise import convert_table_to_col_list
 from observatory.preprocessing.rowwise import convert_table_to_row_list
+from observatory.preprocessing.tablewise import (
+    convert_table_to_str_columnwise,
+    convert_table_to_str_rowwise,
+)
 
 
 class BERTModelWrapper(ModelWrapper):
@@ -35,17 +39,21 @@ class BERTModelWrapper(ModelWrapper):
     def get_max_input_size(self) -> int:
         return 512
 
-    def columnwise_serialization(
+    def serialize_columnwise(
         self, table: pd.DataFrame
     ) -> tuple[list[str], list[int]]:
-        """Serialize a table columnwise and inject special tokens.
+        """Serialize a table columnwise and inject special tokens for inferring
+        column embeddings.
 
         Args:
-            table: A pandas DataFrame representing a table.
+            table:
+                A pandas DataFrame representing a table.
 
         Returns:
-            input_tokens: A list of tokens representing the serialized table.
-            cls_positions: A list of positions of [CLS] tokens.
+            input_tokens:
+                A list of tokens representing the serialized table.
+            cls_positions:
+                A list of positions of [CLS] tokens.
         """
 
         cols = convert_table_to_col_list(table)
@@ -62,7 +70,7 @@ class BERTModelWrapper(ModelWrapper):
 
             if len(input_tokens) + len(col_tokens) > self.max_input_size:
                 raise ValueError(
-                    "The length of the serialized table exceeds the maximum input size. Please preprocess the table to fit the model input size."  # noqa: E501
+                    "The length of the serialized table exceeds the maximum model input size. Preprocess the table to fit the model input size."  # noqa: E501
                 )
             else:
                 input_tokens = input_tokens[:-1] + col_tokens
@@ -75,17 +83,21 @@ class BERTModelWrapper(ModelWrapper):
 
         return input_tokens, cls_positions
 
-    def rowwise_serialization(
+    def serialize_rowwise(
         self, table: pd.DataFrame
     ) -> tuple[list[str], list[int]]:
-        """Serialize a table rowwise and inject special tokens.
+        """Serialize a table rowwise and inject special tokens for inferring
+        row embeddings.
 
         Args:
-            table: A pandas DataFrame representing a table.
+            table:
+                A pandas DataFrame representing a table.
 
         Returns:
-            input_tokens: A list of tokens representing the serialized table.
-            cls_positions: A list of positions of [CLS] tokens.
+            input_tokens:
+                A list of tokens representing the serialized table.
+            cls_positions:
+                A list of positions of [CLS] tokens.
         """
 
         rows = convert_table_to_row_list(table)
@@ -102,7 +114,7 @@ class BERTModelWrapper(ModelWrapper):
 
             if len(input_tokens) + len(row_tokens) > self.max_input_size:
                 raise ValueError(
-                    "The length of the serialized table exceeds the maximum input size. Please preprocess the table to fit the model input size."  # noqa: E501
+                    "The length of the serialized table exceeds the model maximum input size. Preprocess the table to fit the model input size."  # noqa: E501
                 )
             else:
                 input_tokens = input_tokens[:-1] + row_tokens
@@ -114,18 +126,60 @@ class BERTModelWrapper(ModelWrapper):
 
         return input_tokens, cls_positions
 
+    def serialize_table(
+        self, table: pd.DataFrame, by_row: bool = True
+    ) -> tuple[list[str], list[int]]:
+        """Serialize a table for inferring the table embedding.
+
+        Args:
+            table:
+                A pandas DataFrame representing a table.
+            by_row:
+                Whether to serialize by row or by column.
+
+        Returns:
+            input_tokens:
+                A list of tokens representing the serialized table.
+            cls_positions:
+                A list of positions of [CLS] tokens.
+        """
+
+        if by_row:
+            table_str = convert_table_to_str_rowwise(table)
+        else:
+            table_str = convert_table_to_str_columnwise(table)
+
+        input_tokens = (
+            [self.tokenizer.cls_token]
+            + self.tokenizer.tokenize(table_str)
+            + [self.tokenizer.sep_token]
+        )
+
+        if len(input_tokens) > self.max_input_size:
+            raise ValueError(
+                "The length of the serialized table exceeds the maximum input size. Preprocess the table to fit the model input size."  # noqa: E501
+            )
+        else:
+            pad_length = self.max_input_size - len(input_tokens)
+            input_tokens += [self.tokenizer.pad_token] * pad_length
+
+        return input_tokens, [0]
+
     def infer_column_embeddings(
         self, tables: list[pd.DataFrame], batch_size: int
     ) -> list[list[torch.Tensor]]:
         """Column embedding inference.
 
         Args:
-            tables: A list of tables.
-            batch_size: The batch size for inference.
+            tables:
+                A list of tables.
+            batch_size:
+                The batch size for inference.
 
         Returns:
-            all_embeddings: A list of lists of column embeddings where each
-            inner list corresponds to a table.
+            all_embeddings:
+                A list of lists of column embeddings where each inner list
+                corresponds to a table.
         """
 
         num_tables = len(tables)
@@ -136,7 +190,7 @@ class BERTModelWrapper(ModelWrapper):
         batch_cls_positions = []
 
         for tbl_idx, tbl in enumerate(tables):
-            input_tokens, cls_positions = self.columnwise_serialization(tbl)
+            input_tokens, cls_positions = self.serialize_columnwise(tbl)
 
             input_ids = self.tokenizer.convert_tokens_to_ids(input_tokens)
             attention_mask = [
@@ -168,9 +222,7 @@ class BERTModelWrapper(ModelWrapper):
                     cls_embeddings = []
 
                     for pos in batch_cls_positions[i]:
-                        cls_embeddings.append(
-                            last_hidden_state[pos, :].detach().cpu()
-                        )
+                        cls_embeddings.append(last_hidden_state[pos, :])
 
                     all_embeddings.append(cls_embeddings)
 
@@ -182,12 +234,15 @@ class BERTModelWrapper(ModelWrapper):
         """Row embedding inference.
 
         Args:
-            tables: A list of tables.
-            batch_size: The batch size for inference.
+            tables:
+                A list of tables.
+            batch_size:
+                The batch size for inference.
 
         Returns:
-            all_embeddings: A list of lists of row embeddings where each
-            inner list corresponds to a table.
+            all_embeddings:
+                A list of lists of row embeddings where each inner list
+                corresponds to a table.
         """
 
         num_tables = len(tables)
@@ -198,7 +253,7 @@ class BERTModelWrapper(ModelWrapper):
         batch_cls_positions = []
 
         for tbl_idx, tbl in enumerate(tables):
-            input_tokens, cls_positions = self.rowwise_serialization(tbl)
+            input_tokens, cls_positions = self.serialize_rowwise(tbl)
 
             input_ids = self.tokenizer.convert_tokens_to_ids(input_tokens)
             attention_mask = [
@@ -230,16 +285,79 @@ class BERTModelWrapper(ModelWrapper):
                     cls_embeddings = []
 
                     for pos in batch_cls_positions[i]:
-                        cls_embeddings.append(
-                            last_hidden_state[pos, :].detach().cpu()
-                        )
+                        cls_embeddings.append(last_hidden_state[pos, :])
 
                     all_embeddings.append(cls_embeddings)
 
         return all_embeddings
 
-    def infer_table_embeddings(self):
-        pass
+    def infer_table_embeddings(
+        self,
+        tables: list[pd.DataFrame],
+        serialize_by_row: bool,
+        batch_size: int,
+    ) -> list[torch.Tensor]:
+        """Table embedding inference.
+
+        Args:
+            tables:
+                A list of tables.
+            serialize_by_row:
+                Whether to serialize the tables by row (if false, tables will
+                be serialized by column).
+            batch_size:
+                The batch size for inference.
+
+        Returns:
+            all_embeddings:
+                A list of table embeddings.
+        """
+
+        num_tables = len(tables)
+        all_embeddings = []
+
+        batch_input_ids = []
+        batch_attention_masks = []
+        batch_cls_positions = []
+
+        for tbl_idx, tbl in enumerate(tables):
+            input_tokens, cls_positions = self.serialize_table(
+                tbl, serialize_by_row
+            )
+
+            input_ids = self.tokenizer.convert_tokens_to_ids(input_tokens)
+            attention_mask = [
+                1 if token != self.tokenizer.pad_token else 0
+                for token in input_tokens
+            ]
+
+            batch_input_ids.append(torch.tensor(input_ids))
+            batch_attention_masks.append(torch.tensor(attention_mask))
+            batch_cls_positions.append(cls_positions)
+
+            if len(batch_input_ids) == batch_size or tbl_idx + 1 == num_tables:
+                batch_input_ids_tensor = torch.stack(batch_input_ids, dim=0).to(
+                    self.device
+                )
+                batch_attention_masks_tensor = torch.stack(
+                    batch_attention_masks, dim=0
+                ).to(self.device)
+
+                with torch.no_grad():
+                    outputs = self.model(
+                        input_ids=batch_input_ids_tensor,
+                        attention_mask=batch_attention_masks_tensor,
+                    )
+
+                batch_last_hidden_state = outputs.last_hidden_state
+
+                for last_hidden_state in batch_last_hidden_state:
+                    all_embeddings.append(last_hidden_state[0, :])
+
+        # The number of embeddings should match the number of tables
+        assert len(all_embeddings) == num_tables
+
+        return all_embeddings
 
     def infer_cell_embeddings(self):
         pass
