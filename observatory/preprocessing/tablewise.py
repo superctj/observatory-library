@@ -42,6 +42,9 @@ class TableMaxRowsPreprocessor(PreprocessingWrapper):
     [CLS] <row 1> <row 2> ... <row n> [SEP]
     """
 
+    def is_fit(self, sample_table: pd.DataFrame) -> bool:
+        pass
+
     def is_fit_columnwise(self, sample_table: pd.DataFrame) -> bool:
         """Check if a table fits within the maximum model input size based on
         columnwise serialization.
