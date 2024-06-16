@@ -1,5 +1,5 @@
 # Observatory
-A Python library for embedding inference of relational tabular data. This repository evolves from the [codebase](https://github.com/superctj/observatory/tree/main) of our VLDB 2024 paper.
+A Python library for embedding inference of relational tabular data. This repository evolves from the [codebase](https://github.com/superctj/observatory/tree/main) of our VLDB 2024 paper [Observatory: Characterizing Embeddings of Relational Tables](https://www.vldb.org/pvldb/vol17/p849-cong.pdf).
 
 ## Installation
 
@@ -13,7 +13,7 @@ import torch
 
 from observatory.datasets.wikitables import WikiTables
 from observatory.models.bert import BERTModelWrapper
-from observatory.preprocessing.columnwise import MaxRowsPreprocessor
+from observatory.preprocessing.columnwise import ColumnwiseMaxRowsPreprocessor
 
 # Initialize data
 data_dir = ...
@@ -24,17 +24,16 @@ model_name = "bert-base-uncased"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_wrapper = BERTModelWrapper(model_name, device)
 
-# Preprocess data
-max_rows_preprocessor = MaxRowsPreprocessor(
+# Preprocess data for inferring column embeddings
+max_rows_preprocessor = ColumnwiseMaxRowsPreprocessor(
     tokenizer=model_wrapper.tokenizer,
     max_input_size=model_wrapper.max_input_size,
 )
-
-truncated_tables = max_rows_preprocessor.columnwise_truncation(
+truncated_tables = max_rows_preprocessor.truncate_columnwise(
     wikitables_dataset.all_tables
 )
 
-# Infer column embeddings
+# Infer column embeddings (list of column embeddings per table)
 column_embeddings = model_wrapper.infer_column_embeddings(
     truncated_tables, batch_size=32
 )
