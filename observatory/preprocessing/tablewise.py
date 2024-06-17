@@ -36,11 +36,7 @@ def convert_table_to_str_rowwise(table: pd.DataFrame) -> str:
 
 
 class TableMaxRowsPreprocessor(PreprocessingWrapper):
-    """Tablewise preprocessing for BERT-like models. Each table is serialized
-    to a string columnwise as follows:
-
-    [CLS] <row 1> <row 2> ... <row n> [SEP]
-    """
+    """Preprocessing for table embedding inference."""
 
     def is_fit(self, sample_table: pd.DataFrame) -> bool:
         pass
