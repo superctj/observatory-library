@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 
 from observatory.datasets.wikitables import WikiTables
-from observatory.models.bert_family import BERTModelWrapper
+from observatory.models.bert_family import BertModelWrapper
 from observatory.preprocessing.cellwise import CellMaxRowsPreprocessor
 from observatory.preprocessing.columnwise import ColumnwiseMaxRowsPreprocessor
 from observatory.preprocessing.rowwise import RowwiseMaxRowsPreprocessor
@@ -18,11 +18,11 @@ class TestBERTEmbeddingInference(unittest.TestCase):
             os.path.abspath(os.path.dirname(__file__)),
             "sample_data/wiki_tables",
         )
-        model_name = "bert-base-uncased"
+        model_name = "google-bert/bert-base-uncased"
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.wikitables_dataset = WikiTables(data_dir)
-        self.model_wrapper = BERTModelWrapper(model_name, device)
+        self.model_wrapper = BertModelWrapper(model_name, device)
 
         # Prprocessor for inferring column embeddings
         self.columnwise_max_rows_preprocessor = ColumnwiseMaxRowsPreprocessor(
