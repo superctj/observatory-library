@@ -1,7 +1,11 @@
 import pandas as pd
 import torch
 
-from transformers import BertModel, BertTokenizer
+from transformers import (
+    AutoTokenizer,
+    BertModel,
+    RobertaModel,
+)
 
 from observatory.models.model_wrapper import ModelWrapper
 from observatory.preprocessing.cellwise import (
@@ -20,9 +24,19 @@ class BERTFamilyModelWrapper(ModelWrapper):
     """Model wrapper for any BERT-like model whose tokenizer has valid
     attributes `cls_token`, `sep_token`, and `pad_token`.
 
-    To use this class, inherit from it and implement the `get_model`,
-    `get_tokenizer`, and `get_max_input_size` methods.
+    To use this class, inherit from it and implement the `get_model` and
+    `get_max_input_size` methods.
     """
+
+    def get_tokenizer(self) -> AutoTokenizer:
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name, local_files_only=True
+            )
+        except OSError:
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+
+        return tokenizer
 
     def serialize_columnwise(
         self, table: pd.DataFrame
@@ -222,7 +236,9 @@ class BERTFamilyModelWrapper(ModelWrapper):
 
         if len(input_tokens) > self.max_input_size:
             raise ValueError(
-                "The length of the serialized table exceeds the maximum input size. Preprocess the table to fit the model input size."  # noqa: E501
+                f"The length of the serialized table ({len(input_tokens)}) "
+                f"exceeds the maximum input size ({self.max_input_size}). "
+                "Preprocess the table to fit the model input size."
             )
 
         if len(input_tokens) < self.max_input_size:
@@ -505,7 +521,7 @@ class BERTFamilyModelWrapper(ModelWrapper):
         return all_embeddings
 
 
-class BERTModelWrapper(BERTFamilyModelWrapper):
+class BertModelWrapper(BERTFamilyModelWrapper):
     def get_model(self) -> BertModel:
         try:
             model = BertModel.from_pretrained(
@@ -519,15 +535,23 @@ class BERTModelWrapper(BERTFamilyModelWrapper):
 
         return model
 
-    def get_tokenizer(self) -> BertTokenizer:
+    def get_max_input_size(self) -> int:
+        return 512
+
+
+class RobertaModelWrapper(BERTFamilyModelWrapper):
+    def get_model(self) -> RobertaModel:
         try:
-            tokenizer = BertTokenizer.from_pretrained(
+            model = RobertaModel.from_pretrained(
                 self.model_name, local_files_only=True
             )
         except OSError:
-            tokenizer = BertTokenizer.from_pretrained(self.model_name)
+            model = RobertaModel.from_pretrained(self.model_name)
 
-        return tokenizer
+        model = model.to(self.device)
+        model.eval()
+
+        return model
 
     def get_max_input_size(self) -> int:
         return 512
