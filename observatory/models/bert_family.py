@@ -16,32 +16,13 @@ from observatory.preprocessing.tablewise import (
 )
 
 
-class BERTModelWrapper(ModelWrapper):
-    def get_model(self) -> BertModel:
-        try:
-            model = BertModel.from_pretrained(
-                self.model_name, local_files_only=True
-            )
-        except OSError:
-            model = BertModel.from_pretrained(self.model_name)
+class BERTFamilyModelWrapper(ModelWrapper):
+    """Model wrapper for any BERT-like model whose tokenizer has valid
+    attributes `cls_token`, `sep_token`, and `pad_token`.
 
-        model = model.to(self.device)
-        model.eval()
-
-        return model
-
-    def get_tokenizer(self) -> BertTokenizer:
-        try:
-            tokenizer = BertTokenizer.from_pretrained(
-                self.model_name, local_files_only=True
-            )
-        except OSError:
-            tokenizer = BertTokenizer.from_pretrained(self.model_name)
-
-        return tokenizer
-
-    def get_max_input_size(self) -> int:
-        return 512
+    To use this class, inherit from it and implement the `get_model`,
+    `get_tokenizer`, and `get_max_input_size` methods.
+    """
 
     def serialize_columnwise(
         self, table: pd.DataFrame
@@ -522,3 +503,31 @@ class BERTModelWrapper(ModelWrapper):
                     all_embeddings.append(cell_embeddings)
 
         return all_embeddings
+
+
+class BERTModelWrapper(BERTFamilyModelWrapper):
+    def get_model(self) -> BertModel:
+        try:
+            model = BertModel.from_pretrained(
+                self.model_name, local_files_only=True
+            )
+        except OSError:
+            model = BertModel.from_pretrained(self.model_name)
+
+        model = model.to(self.device)
+        model.eval()
+
+        return model
+
+    def get_tokenizer(self) -> BertTokenizer:
+        try:
+            tokenizer = BertTokenizer.from_pretrained(
+                self.model_name, local_files_only=True
+            )
+        except OSError:
+            tokenizer = BertTokenizer.from_pretrained(self.model_name)
+
+        return tokenizer
+
+    def get_max_input_size(self) -> int:
+        return 512
