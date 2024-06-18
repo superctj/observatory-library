@@ -92,7 +92,7 @@ class CellMaxRowsPreprocessor(PreprocessingWrapper):
         cell_lists = convert_table_to_cell_lists_columnwise(
             sample_table, include_headers
         )
-        # Start from 2 to account for [CLS] and [SEP] tokens
+        # Start from 2 to account for cls_token and sep_token
         current_len = 2
 
         for cells in cell_lists:
@@ -143,8 +143,8 @@ class CellMaxRowsPreprocessor(PreprocessingWrapper):
 
         return True
 
-    def max_rows_fit_columnwise(
-        self, table: pd.DataFrame, include_headers: bool
+    def max_rows_fit(
+        self, table: pd.DataFrame, by_row: bool, include_headers: bool
     ) -> bool:
         """Compute the maximum number of rows that fit within the maximum model
         input size based on columnwise serialization.
@@ -152,6 +152,9 @@ class CellMaxRowsPreprocessor(PreprocessingWrapper):
         Args:
             table:
                 A pandas DataFrame representing a table.
+            by_row:
+                Whether to serialize the tables by row (if false, tables will
+                be serialized by column).
             include_headers:
                 Whether to include table headers in the serialized table.
 
@@ -168,7 +171,12 @@ class CellMaxRowsPreprocessor(PreprocessingWrapper):
             mid = (low + high + 1) // 2  # middle point
             sample_table = table.iloc[:mid, :]  # sample table with `mid` rows
 
-            if self.is_fit_columnwise(sample_table, include_headers):
+            if by_row:
+                is_fit = self.is_fit_rowwise(sample_table, include_headers)
+            else:
+                is_fit = self.is_fit_columnwise(sample_table, include_headers)
+
+            if is_fit:
                 low = mid  # if it fits, try with more rows
             else:
                 high = mid - 1  # if it doesn't fit, try with fewer rows
@@ -176,47 +184,20 @@ class CellMaxRowsPreprocessor(PreprocessingWrapper):
         # When low == high, we found the maximum number of rows
         return low
 
-    def max_rows_fit_rowwise(
-        self, table: pd.DataFrame, include_headers: bool
-    ) -> bool:
-        """Compute the maximum number of rows that fit within the maximum model
-        input size based on rowwise serialization.
-
-        Args:
-            table:
-                A pandas DataFrame representing a table.
-            include_headers:
-                Whether to include table headers in the serialized table.
-
-        Returns:
-            low:
-                The maximum number of rows that fit within the maximum model
-                input size.
-        """
-
-        low = 0
-        high = len(table)
-
-        while low < high:
-            mid = (low + high + 1) // 2  # middle point
-            sample_table = table.iloc[:mid, :]  # sample table with `mid` rows
-
-            if self.is_fit_rowwise(sample_table, include_headers):
-                low = mid  # if it fits, try with more rows
-            else:
-                high = mid - 1  # if it doesn't fit, try with fewer rows
-
-        # When low == high, we found the maximum number of rows
-        return low
-
-    def truncate_columnwise(
-        self, tables: list[pd.DataFrame], include_headers: bool = True
+    def truncate(
+        self,
+        tables: list[pd.DataFrame],
+        by_row: bool,
+        include_headers: bool,
     ) -> list[pd.DataFrame]:
         """Truncate tables based on columnwise serialization to fit within the
         maximum model input size.
 
         Args:
             tables: A list of tables.
+            by_row:
+                Whether to serialize the tables by row (if false, tables will
+                be serialized by column).
             include_headers:
                 Whether to include column headers in the serialized table.
 
@@ -227,41 +208,12 @@ class CellMaxRowsPreprocessor(PreprocessingWrapper):
         truncated_tables = []
 
         for tbl in tables:
-            max_rows_fit = self.max_rows_fit_columnwise(tbl, include_headers)
+            max_rows_fit = self.max_rows_fit(tbl, by_row, include_headers)
 
             if max_rows_fit < 1:
                 raise ValueError(
-                    "Table is too wide to fit within the maximum model input size. Split the table columnwise into smaller tables."  # noqa: E501
-                )
-
-            truncated_tbl = tbl.iloc[:max_rows_fit, :]
-            truncated_tables.append(truncated_tbl)
-
-        return truncated_tables
-
-    def truncate_rowwise(
-        self, tables: list[pd.DataFrame], include_headers: bool = True
-    ) -> list[pd.DataFrame]:
-        """Truncate tables based on rowwise serialization to fit within the
-        maximum model input size.
-
-        Args:
-            tables: A list of tables.
-            include_headers:
-                Whether to include column headers in the serialized table.
-
-        Returns:
-            truncated_tables: A list of truncated tables.
-        """
-
-        truncated_tables = []
-
-        for tbl in tables:
-            max_rows_fit = self.max_rows_fit_rowwise(tbl, include_headers)
-
-            if max_rows_fit < 1:
-                raise ValueError(
-                    "Table is too wide to fit within the maximum model input size. Split the table columnwise into smaller tables."  # noqa: E501
+                    "Table is too wide to fit within the maximum model input "
+                    "size. Split the table columnwise into smaller tables."
                 )
 
             truncated_tbl = tbl.iloc[:max_rows_fit, :]
