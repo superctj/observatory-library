@@ -101,12 +101,13 @@ class TestRoBERTaEmbeddingInference(unittest.TestCase):
         include_headers = True
 
         # Serialize tables by column to infer cell embeddings
-        truncated_tables = self.cell_max_rows_preprocessor.truncate_columnwise(
-            self.wikitables_dataset.all_tables, include_headers
+        by_row = False
+        truncated_tables = self.cell_max_rows_preprocessor.truncate(
+            self.wikitables_dataset.all_tables, by_row, include_headers
         )
         cell_embeddings = self.model_wrapper.infer_cell_embeddings(
             truncated_tables,
-            serialize_by_row=False,
+            serialize_by_row=by_row,
             include_headers=include_headers,
             batch_size=32,
         )
@@ -116,12 +117,13 @@ class TestRoBERTaEmbeddingInference(unittest.TestCase):
         )
 
         # Serialize tables by row to infer cell embeddings
-        truncated_tables = self.cell_max_rows_preprocessor.truncate_rowwise(
-            self.wikitables_dataset.all_tables, include_headers
+        by_row = True
+        truncated_tables = self.cell_max_rows_preprocessor.truncate(
+            self.wikitables_dataset.all_tables, by_row, include_headers
         )
         cell_embeddings = self.model_wrapper.infer_cell_embeddings(
             truncated_tables,
-            serialize_by_row=True,
+            serialize_by_row=by_row,
             include_headers=include_headers,
             batch_size=32,
         )
@@ -134,12 +136,13 @@ class TestRoBERTaEmbeddingInference(unittest.TestCase):
         include_headers = False
 
         # Serialize tables by column to infer cell embeddings
-        truncated_tables = self.cell_max_rows_preprocessor.truncate_columnwise(
-            self.wikitables_dataset.all_tables, include_headers
+        by_row = False
+        truncated_tables = self.cell_max_rows_preprocessor.truncate(
+            self.wikitables_dataset.all_tables, by_row, include_headers
         )
         cell_embeddings = self.model_wrapper.infer_cell_embeddings(
             truncated_tables,
-            serialize_by_row=False,
+            serialize_by_row=by_row,
             include_headers=include_headers,
             batch_size=32,
         )
@@ -149,12 +152,13 @@ class TestRoBERTaEmbeddingInference(unittest.TestCase):
         )
 
         # Serialize tables by row to infer cell embeddings
-        truncated_tables = self.cell_max_rows_preprocessor.truncate_rowwise(
-            self.wikitables_dataset.all_tables, include_headers
+        by_row = True
+        truncated_tables = self.cell_max_rows_preprocessor.truncate(
+            self.wikitables_dataset.all_tables, by_row, include_headers
         )
         cell_embeddings = self.model_wrapper.infer_cell_embeddings(
             truncated_tables,
-            serialize_by_row=True,
+            serialize_by_row=by_row,
             include_headers=include_headers,
             batch_size=32,
         )
