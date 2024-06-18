@@ -15,6 +15,10 @@ class ModelWrapper(ABC):
         self.tokenizer = self.get_tokenizer()
         self.max_input_size = self.get_max_input_size()
 
+        assert self.tokenizer.cls_token is not None
+        assert self.tokenizer.sep_token is not None
+        assert self.tokenizer.pad_token is not None
+
     @abstractmethod
     def get_model(self):
         """Get a pretrained model."""
