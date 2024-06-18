@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 
 from observatory.datasets.wikitables import WikiTables
-from observatory.models.bert import BERTModelWrapper
+from observatory.models.bert_family import BERTModelWrapper
 from observatory.preprocessing.cellwise import CellMaxRowsPreprocessor
 from observatory.preprocessing.columnwise import ColumnwiseMaxRowsPreprocessor
 from observatory.preprocessing.rowwise import RowwiseMaxRowsPreprocessor
