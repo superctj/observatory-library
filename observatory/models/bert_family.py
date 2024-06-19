@@ -26,6 +26,8 @@ class BERTFamilyModelWrapper(ModelWrapper):
     attributes `cls_token`, `sep_token`, and `pad_token`.
 
     To use this class, inherit from it and implement the `get_model` method.
+    Override the `get_max_input_size` method if the model input size cannot be
+    obtained from the model config.
     """
 
     def get_tokenizer(self) -> AutoTokenizer:
@@ -552,6 +554,12 @@ class RobertaModelWrapper(BERTFamilyModelWrapper):
         model.eval()
 
         return model
+
+    # This method is overridden due to `RuntimeError: CUDA error: device-side
+    # assert triggered` occurred when getting the model input size from the
+    # model config
+    def get_max_input_size(self) -> int:
+        return 512
 
 
 class AlbertModelWrapper(BERTFamilyModelWrapper):
