@@ -18,6 +18,7 @@ class ModelWrapper(ABC):
         assert self.tokenizer.cls_token is not None
         assert self.tokenizer.sep_token is not None
         assert self.tokenizer.pad_token is not None
+        assert self.max_input_size is not None
 
     @abstractmethod
     def get_model(self):
