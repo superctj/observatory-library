@@ -2,6 +2,7 @@ import pandas as pd
 import torch
 
 from transformers import (
+    AlbertModel,
     AutoTokenizer,
     BertModel,
     RobertaModel,
@@ -24,8 +25,7 @@ class BERTFamilyModelWrapper(ModelWrapper):
     """Model wrapper for any BERT-like model whose tokenizer has valid
     attributes `cls_token`, `sep_token`, and `pad_token`.
 
-    To use this class, inherit from it and implement the `get_model` and
-    `get_max_input_size` methods.
+    To use this class, inherit from it and implement the `get_model` method.
     """
 
     def get_tokenizer(self) -> AutoTokenizer:
@@ -37,6 +37,9 @@ class BERTFamilyModelWrapper(ModelWrapper):
             tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
         return tokenizer
+
+    def get_max_input_size(self) -> int:
+        return self.model.config.max_position_embeddings
 
     def serialize_columnwise(
         self, table: pd.DataFrame
@@ -535,9 +538,6 @@ class BertModelWrapper(BERTFamilyModelWrapper):
 
         return model
 
-    def get_max_input_size(self) -> int:
-        return 512
-
 
 class RobertaModelWrapper(BERTFamilyModelWrapper):
     def get_model(self) -> RobertaModel:
@@ -553,5 +553,17 @@ class RobertaModelWrapper(BERTFamilyModelWrapper):
 
         return model
 
-    def get_max_input_size(self) -> int:
-        return 512
+
+class AlbertModelWrapper(BERTFamilyModelWrapper):
+    def get_model(self) -> AlbertModel:
+        try:
+            model = AlbertModel.from_pretrained(
+                self.model_name, local_files_only=True
+            )
+        except OSError:
+            model = AlbertModel.from_pretrained(self.model_name)
+
+        model = model.to(self.device)
+        model.eval()
+
+        return model
