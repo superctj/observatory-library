@@ -12,7 +12,7 @@ from observatory.preprocessing.rowwise import RowwiseMaxRowsPreprocessor
 from observatory.preprocessing.tablewise import TableMaxRowsPreprocessor
 
 
-class TestRoBERTaEmbeddingInference(unittest.TestCase):
+class TestRobertaEmbeddingInference(unittest.TestCase):
     def setUp(self):
         data_dir = os.path.join(
             os.path.abspath(os.path.dirname(__file__)),
