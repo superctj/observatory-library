@@ -70,17 +70,19 @@ def convert_table_to_cell_lists_rowwise(
 class CellMaxRowsPreprocessor(PreprocessingWrapper):
     """Preprocessing for cell embedding inference."""
 
-    def is_fit(self, sample_table: pd.DataFrame) -> bool:
-        pass
-
-    def is_fit_columnwise(
-        self, sample_table: pd.DataFrame, include_headers: bool
+    def is_fit(
+        self,
+        sample_table: pd.DataFrame,
+        by_row: bool = True,
+        include_headers: bool = True,
     ) -> bool:
-        """Check if a table fits within the maximum model input size based on
-        columnwise serialization.
+        """Check if a table fits within the maximum model input size.
 
         Args:
             sample_table: A pandas DataFrame representing a sample table.
+            by_row:
+                Whether to serialize the tables by row (if false, tables will
+                be serialized by column).
             include_headers:
                 Whether to include column headers in the serialized table.
 
@@ -89,57 +91,27 @@ class CellMaxRowsPreprocessor(PreprocessingWrapper):
             input size.
         """
 
-        cell_lists = convert_table_to_cell_lists_columnwise(
-            sample_table, include_headers
-        )
+        if by_row:
+            cell_lists = convert_table_to_cell_lists_rowwise(
+                sample_table, include_headers
+            )
+        else:
+            cell_lists = convert_table_to_cell_lists_columnwise(
+                sample_table, include_headers
+            )
+
         # Start from 2 to account for cls_token and sep_token
         current_len = 2
 
         for cells in cell_lists:
-            col_str = " ".join(cells)
-            col_tokens = self.tokenizer.tokenize(col_str)
+            for c in cells:
+                c_tokens = self.tokenizer.tokenize(c)
 
-            # Check if adding new tokens would exceed the max input size
-            if current_len + len(col_tokens) > self.max_input_size:
-                # If so, stop and return false
-                return False
-            else:
-                current_len += len(col_tokens)
-
-        return True
-
-    def is_fit_rowwise(
-        self, sample_table: pd.DataFrame, include_headers: bool
-    ) -> bool:
-        """Check if a table fits within the maximum model input size based on
-        rowwise serialization.
-
-        Args:
-            sample_table: A pandas DataFrame representing a sample table.
-            include_headers:
-                Whether to include column headers in the serialized table.
-
-        Returns:
-            A boolean indicating if the table fits within the maximum model
-            input size.
-        """
-
-        cell_lists = convert_table_to_cell_lists_rowwise(
-            sample_table, include_headers
-        )
-        # Start from 2 to account for [CLS] and [SEP] tokens
-        current_len = 2
-
-        for cells in cell_lists:
-            row_str = " ".join(cells)
-            col_tokens = self.tokenizer.tokenize(row_str)
-
-            # Check if adding new tokens would exceed the max input size
-            if current_len + len(col_tokens) > self.max_input_size:
-                # If so, stop and return false
-                return False
-            else:
-                current_len += len(col_tokens)
+                # Check if adding new tokens would exceed the max input size
+                if current_len + len(c_tokens) > self.max_input_size:
+                    return False
+                else:
+                    current_len += len(c_tokens)
 
         return True
 
@@ -171,12 +143,7 @@ class CellMaxRowsPreprocessor(PreprocessingWrapper):
             mid = (low + high + 1) // 2  # middle point
             sample_table = table.iloc[:mid, :]  # sample table with `mid` rows
 
-            if by_row:
-                is_fit = self.is_fit_rowwise(sample_table, include_headers)
-            else:
-                is_fit = self.is_fit_columnwise(sample_table, include_headers)
-
-            if is_fit:
+            if self.is_fit(sample_table, by_row, include_headers):
                 low = mid  # if it fits, try with more rows
             else:
                 high = mid - 1  # if it doesn't fit, try with fewer rows
