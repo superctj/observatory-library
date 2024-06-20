@@ -46,12 +46,12 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
         current_tokens = []
 
         for col in cols:
-            # Tokenize `col` without special tokens
-            col_tokens = self.tokenizer.tokenize(col)
-
-            # [CLS] and [SEP] here are only placeholders (different models can
-            # use different special tokens)
-            col_tokens = ["[CLS]"] + col_tokens + ["[SEP]"]
+            # Tokenize the column
+            col_tokens = (
+                [self.tokenizer.cls_token]
+                + self.tokenizer.tokenize(col)
+                + [self.tokenizer.sep_token]
+            )
 
             # Check if adding new tokens would exceed the max input size
             if len(current_tokens) + len(col_tokens) > self.max_input_size:
@@ -107,8 +107,11 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
             max_rows_fit = self.max_rows_fit(tbl)
 
             if max_rows_fit < 1:
-                # TODO: raise error of wide tables
-                continue
+                raise ValueError(
+                    "The table is too wide and no single row can fit within "
+                    "the maximum model input size. Consider splitting the "
+                    "table columnwise."
+                )
 
             truncated_tbl = tbl.iloc[:max_rows_fit, :]
             truncated_tables.append(truncated_tbl)
