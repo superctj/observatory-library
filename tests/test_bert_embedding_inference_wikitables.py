@@ -48,7 +48,7 @@ class TestBertEmbeddingInference(unittest.TestCase):
             max_input_size=self.model_wrapper.max_input_size,
         )
 
-    def test_infer_column_embeddings_from_wikitables(self):
+    def test_infer_column_embeddings(self):
         truncated_tables = (
             self.columnwise_max_rows_preprocessor.truncate_columnwise(
                 self.wikitables_dataset.all_tables
@@ -59,7 +59,7 @@ class TestBertEmbeddingInference(unittest.TestCase):
         )
         assert len(column_embeddings) == len(self.wikitables_dataset.all_tables)
 
-    def test_infer_row_embeddings_from_wikitables(self):
+    def test_infer_row_embeddings(self):
         truncated_tables = self.rowwise_max_rows_preprocessor.truncate_rowwise(
             self.wikitables_dataset.all_tables
         )
@@ -68,7 +68,7 @@ class TestBertEmbeddingInference(unittest.TestCase):
         )
         assert len(row_embeddings) == len(self.wikitables_dataset.all_tables)
 
-    def test_infer_table_embeddings_from_wikitables(self):
+    def test_infer_table_embeddings(self):
         # Serialize tables by column to infer table embeddings
         truncated_tables = self.table_max_rows_preprocessor.truncate_columnwise(
             self.wikitables_dataset.all_tables
@@ -87,7 +87,7 @@ class TestBertEmbeddingInference(unittest.TestCase):
         )
         assert len(table_embeddings) == len(self.wikitables_dataset.all_tables)
 
-    def test_infer_cell_embeddings_from_wikitables(self):
+    def test_infer_cell_embeddings(self):
         def assert_num_cells_matches_num_embeddings(
             tables: list[pd.DataFrame], cell_embeddings: list[torch.Tensor]
         ):
