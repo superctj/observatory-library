@@ -1,5 +1,7 @@
 import pandas as pd
 
+from transformers import PreTrainedTokenizer
+
 from observatory.preprocessing.preprocessing_wrapper import PreprocessingWrapper
 
 
@@ -137,4 +139,86 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
     number of columns in the table corpus that have the cell value.
     """
 
-    pass
+    def __init__(
+        self,
+        tokenizer: PreTrainedTokenizer,
+        max_input_size: int,
+        dataset_wrapper,
+        include_table_name: bool = True,
+        include_column_name: bool = True,
+        include_column_stats: bool = True,
+    ):
+        super().__init__(tokenizer, max_input_size)
+
+        self.dataset_wrapper = dataset_wrapper
+        self.include_table_name = include_table_name
+        self.include_column_name = include_column_name
+        self.include_column_stats = include_column_stats
+
+        # Compute cell document frequencies
+        self.cell_frequencies = (
+            self.dataset_wrapper.compute_cell_document_frequencies()
+        )
+
+    def get_sorted_values_per_column(self, table: pd.DataFrame) -> list[str]:
+        sorted_values_per_column = []
+
+        for i in range(len(table.columns)):
+            col_values = table.iloc[:, i].unique().to_list()
+
+            # sort column values by their frequencies
+            col_values = sorted(
+                col_values,
+                key=lambda x: self.cell_frequencies.get(x, 0),
+                reverse=True,
+            )
+
+            sorted_values_per_column.append(col_values)
+
+        return sorted_values_per_column
+
+    def apply_text_template(self, table: pd.DataFrame) -> str:
+        table_name = table.attrs.get("name")
+
+        if not table_name and self.include_table_name:
+            raise ValueError(
+                "Table name is missing while `include_table_name` is set to "
+                "True` when initializing the preprocessor."
+            )
+
+        sorted_values_per_column = self.get_sorted_values_per_column(table)
+
+        templated_cols = []
+
+        for i, col_values in enumerate(sorted_values_per_column):
+            col_text = ""
+
+            if self.include_table_name:
+                col_text += f"{table_name}. "
+
+            if self.include_column_name:
+                col_text += (
+                    f"{table.columns[i]} contains {len(col_values)} values"
+                )
+
+                if self.include_column_stats:
+                    col_text += (
+                        f" ({len(min(col_values, key=len))}, "
+                        f"{len(max(col_values, key=len))}, "
+                        f"{sum(map(len, col_values)) / len(col_values)}): "
+                    )
+                else:
+                    col_text += ": "
+
+            col_text += ", ".join(col_values)
+            templated_cols.append(col_text)
+
+        return templated_cols
+
+    def serialize_columnwise(self, table: pd.DataFrame) -> dict:
+        templated_cols = self.apply_text_template(table)
+        encoded_inputs = self.tokenizer(
+            templated_cols, padding=True, truncation=True, return_tensors="pt"
+        )
+
+        return encoded_inputs
