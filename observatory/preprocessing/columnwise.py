@@ -25,8 +25,9 @@ def convert_table_to_col_list(table: pd.DataFrame) -> list[str]:
 
 
 class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
-    """Columnwise preprocessing for BERT-like models. Each table is serialized
-    to a string as follows:
+    """Columnwise preprocessing for BERT-like models. The preprocessor attempts
+    to serialize each table to a sequence of tokens (up to the maximum number
+    of rows that fit within the model input size) as follows:
 
     [CLS]<col 1>[CLS]<col 2>[CLS]...[CLS][col n][SEP]
     """
@@ -117,3 +118,23 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
             truncated_tables.append(truncated_tbl)
 
         return truncated_tables
+
+
+class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
+    """Frequency-based columnwise preprocessing from Dong et al. DeepJoin
+    (https://www.vldb.org/pvldb/vol16/p2458-dong.pdf).
+
+    Each column is considered as a set of unique cells and serialized to a
+    sequence of tokens following the template:
+
+    <table name>. <column name> contains <n> values (<max number of
+    characters in cell values, <min>, <average>): <cell 1>, <cell 2>, ...,
+    <cell n>.
+
+    If the length of the serialized sequence exceeds the model input size, more
+    frequent cell values are preserved up to the maximum number of tokens
+    allowed. Here, the frequency is defined as document frequency, i.e., the
+    number of columns in the table corpus that have the cell value.
+    """
+
+    pass
