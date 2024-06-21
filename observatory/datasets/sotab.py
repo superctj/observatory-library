@@ -44,7 +44,6 @@ class SotabDataset:
                 table.dropna(axis=0, how="all", inplace=True)
 
                 # Convert all columns to string
-                table.columns = table.columns.astype(str)
                 table = table.astype(str)
 
                 for col in table.columns:
