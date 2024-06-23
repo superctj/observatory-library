@@ -38,8 +38,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--file_extension",
         type=str,
-        default=".csv",
-        help="The table file extension.",
+        help="The table file extension, e.g., .csv or .parquet.",
     )
 
     args = parser.parse_args()
