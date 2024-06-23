@@ -143,28 +143,28 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
         self,
         tokenizer: PreTrainedTokenizer,
         max_input_size: int,
-        dataset_wrapper,
+        cell_frequencies: dict[str, int],
         include_table_name: bool = True,
         include_column_name: bool = True,
         include_column_stats: bool = True,
     ):
         super().__init__(tokenizer, max_input_size)
 
-        self.dataset_wrapper = dataset_wrapper
         self.include_table_name = include_table_name
         self.include_column_name = include_column_name
         self.include_column_stats = include_column_stats
 
         # Compute cell document frequencies
-        self.cell_frequencies = (
-            self.dataset_wrapper.compute_cell_document_frequencies()
-        )
+        self.cell_frequencies = cell_frequencies
+
+    def is_fit(self):
+        pass
 
     def get_sorted_values_per_column(self, table: pd.DataFrame) -> list[str]:
         sorted_values_per_column = []
 
         for i in range(len(table.columns)):
-            col_values = table.iloc[:, i].unique().to_list()
+            col_values = table.iloc[:, i].unique()
 
             # sort column values by their frequencies
             col_values = sorted(
