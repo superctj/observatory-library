@@ -1,3 +1,5 @@
+from typing import Union
+
 import pandas as pd
 import torch
 
@@ -525,7 +527,9 @@ class BERTFamilyModelWrapper(ModelWrapper):
 
         return all_embeddings
 
-    def infer_embeddings(self, encoded_inputs: dict) -> torch.FloatTensor:
+    def infer_embeddings(
+        self, encoded_inputs: dict, cls_positions: list[list[int]] = None
+    ) -> Union[torch.FloatTensor, list[torch.FloatTensor]]:
 
         for key in encoded_inputs:
             encoded_inputs[key] = encoded_inputs[key].to(self.device)
@@ -534,9 +538,21 @@ class BERTFamilyModelWrapper(ModelWrapper):
             outputs = self.model(**encoded_inputs)
 
         batch_last_hidden_state = outputs.last_hidden_state
-        column_embeddings = batch_last_hidden_state[:, 0, :]
 
-        return column_embeddings
+        if not cls_positions:
+            embeddings = batch_last_hidden_state[:, 0, :]
+        else:
+            embeddings = []
+
+            for i, last_hidden_state in enumerate(batch_last_hidden_state):
+                cls_embeddings = torch.stack(
+                    [last_hidden_state[pos, :] for pos in cls_positions[i]],
+                    dim=0,
+                )
+
+                embeddings.append(cls_embeddings)
+
+        return embeddings
 
 
 class BertModelWrapper(BERTFamilyModelWrapper):
