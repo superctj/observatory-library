@@ -1,4 +1,5 @@
 import pandas as pd
+import torch
 
 from transformers import PreTrainedTokenizer
 
@@ -93,33 +94,100 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
         # When low == high, we found the maximum number of rows
         return low
 
-    def truncate_columnwise(self, tables: list[pd.DataFrame]):
-        """Truncate tables based on columnwise serialization to fit within the
+    def truncate_columnwise(self, table: pd.DataFrame):
+        """Truncate a table based on columnwise serialization to fit within the
         maximum model input size.
 
         Args:
-            tables: A list of tables.
+            table: A table in Pandas data frame.
 
         Returns:
-            truncated_tables: A list of truncated tables.
+            truncated_table: A truncated table.
         """
 
-        truncated_tables = []
+        max_rows_fit = self.max_rows_fit(table)
+
+        if max_rows_fit < 1:
+            raise ValueError(
+                "The table is too wide to fit within the maximum model input "
+                "size. Consider splitting the table columnwise."
+            )
+        else:
+            truncated_table = table.iloc[:max_rows_fit, :]
+
+        return truncated_table
+
+    def serialize_columnwise(
+        self, tables: list[pd.DataFrame]
+    ) -> tuple[dict, list]:
+        """Serialize a table columnwise to a sequence of tokens.
+
+        Args:
+            table: A table in Pandas data frame.
+
+        Returns:
+            encoded_inputs:
+                A dictionary containing encoded inputs.
+            cls_positions:
+                Positions of the [CLS] tokens in the serialized sequence.
+        """
+
+        batch_input_ids = []
+        batch_attention_masks = []
+        batch_cls_positions = []
 
         for tbl in tables:
-            max_rows_fit = self.max_rows_fit(tbl)
+            truncated_tbl = self.truncate_columnwise(tbl)
+            cols = convert_table_to_col_list(truncated_tbl)
 
-            if max_rows_fit < 1:
-                raise ValueError(
-                    "The table is too wide and no single row can fit within "
-                    "the maximum model input size. Consider splitting the "
-                    "table columnwise."
+            input_tokens = []
+            cls_positions = []
+
+            for col in cols:
+                col_tokens = self.tokenizer.tokenize(col)
+                col_tokens = (
+                    [self.tokenizer.cls_token]
+                    + col_tokens
+                    + [self.tokenizer.sep_token]
                 )
 
-            truncated_tbl = tbl.iloc[:max_rows_fit, :]
-            truncated_tables.append(truncated_tbl)
+                current_length = len(input_tokens) + len(col_tokens)
+                if current_length > self.max_input_size:
+                    raise ValueError(
+                        "The length of the serialized table ("
+                        f"{current_length}) exceeds the maximum model input "
+                        f"size ({self.max_input_size}). Preprocess the table "
+                        "to fit the model input size."
+                    )
+                else:
+                    input_tokens = input_tokens[:-1] + col_tokens
+                    cls_positions.append(len(input_tokens) - len(col_tokens))
 
-        return truncated_tables
+            # pad the sequence if necessary
+            if len(input_tokens) < self.max_input_size:
+                pad_length = self.max_input_size - len(input_tokens)
+                input_tokens += [self.tokenizer.pad_token] * pad_length
+
+            input_ids = torch.tensor(
+                self.tokenizer.convert_tokens_to_ids(input_tokens)
+            )
+            attention_mask = torch.tensor(
+                [
+                    1 if token != self.tokenizer.pad_token else 0
+                    for token in input_tokens
+                ]
+            )
+
+            batch_input_ids.append(input_ids)
+            batch_attention_masks.append(attention_mask)
+            batch_cls_positions.append(cls_positions)
+
+        encoded_inputs = {
+            "input_ids": torch.stack(batch_input_ids, dim=0),
+            "attention_mask": torch.stack(batch_attention_masks, dim=0),
+        }
+
+        return encoded_inputs, batch_cls_positions
 
 
 class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
@@ -216,9 +284,13 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
         return templated_cols
 
     def serialize_columnwise(self, table: pd.DataFrame) -> dict:
+        """Serialize a table columnwise to a sequence of tokens."""
+
         templated_cols = self.apply_text_template(table)
         encoded_inputs = self.tokenizer(
             templated_cols, padding=True, truncation=True, return_tensors="pt"
         )
+
+        print(encoded_inputs)
 
         return encoded_inputs
