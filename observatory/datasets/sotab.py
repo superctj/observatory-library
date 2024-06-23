@@ -2,27 +2,44 @@ import os
 
 import pandas as pd
 
+from torch.utils.data import Dataset
 
-class SotabDataset:
-    def __init__(self, data_dir: str):
+
+class SotabDataset(Dataset):
+    def __init__(
+        self, data_dir: str, metadata_filepath: str, transform: callable = None
+    ):
+        """
+        Args:
+            data_dir:
+                The directory containing tables.
+            metadata_filepath:
+                The path to the metadata file, which contains table file names
+                and potentially other information of tables.
+        """
+
         self.data_dir = data_dir
-        # self.all_tables = self._get_tables()
+        self.metadata = pd.read_csv(metadata_filepath)
 
-    # def _get_tables(self):
-    #     all_tables = []
+    def __len__(self):
+        return self.metadata.shape[0]
 
-    #     for f in os.listdir(self.data_dir):
-    #         if f.endswith(".json.gz"):
-    #             filepath = os.path.join(self.data_dir, f)
-    #             table = pd.read_json(filepath, compression="gzip", lines=True)
+    def __getitem__(self, idx) -> pd.DataFrame:
+        # Assume the first column of the metadata file contains table file names
+        table_filepath = os.path.join(self.data_dir, self.metadata.iloc[idx, 0])
+        table = pd.read_json(table_filepath, compression="gzip", lines=True)
 
-    #             table.columns = table.columns.astype(str)
-    #             table = table.reset_index(drop=True)
-    #             table = table.astype(str)
+        # Add table name
+        table.attrs["name"] = self.metadata.iloc[idx, 0]
 
-    #             all_tables.append(table)
+        # Drop NaN columns and rows
+        table.dropna(axis=1, how="all", inplace=True)
+        table.dropna(axis=0, how="all", inplace=True)
 
-    #     return all_tables
+        # Convert all columns to string
+        table = table.astype(str)
+
+        return table
 
     def compute_cell_document_frequencies(self):
         """Compute the document frequency of each cell value, which is defined
@@ -34,23 +51,27 @@ class SotabDataset:
 
         cell_document_frequencies = {}
 
-        for f in os.listdir(self.data_dir):
-            if f.endswith(".json.gz"):
-                filepath = os.path.join(self.data_dir, f)
-                table = pd.read_json(filepath, compression="gzip", lines=True)
+        for row in self.metadata.itertuples():
+            table = pd.read_json(
+                os.path.join(self.data_dir, row.table_name),
+                compression="gzip",
+                lines=True,
+            )
 
-                # Deop NaN columns and rows
-                table.dropna(axis=1, how="all", inplace=True)
-                table.dropna(axis=0, how="all", inplace=True)
+            # Drop NaN columns and rows
+            table.dropna(axis=1, how="all", inplace=True)
+            table.dropna(axis=0, how="all", inplace=True)
 
-                # Convert all columns to string
-                table = table.astype(str)
+            # Convert all columns to string
+            table = table.astype(str)
 
-                for col in table.columns:
-                    for cell in table[col]:
-                        if cell not in cell_document_frequencies:
-                            cell_document_frequencies[cell] = 1
-                        else:
-                            cell_document_frequencies[cell] += 1
+            for col in table.columns:
+                col_uniq_values = table[col].unique()
+
+                for cell in col_uniq_values:
+                    if cell not in cell_document_frequencies:
+                        cell_document_frequencies[cell] = 1
+                    else:
+                        cell_document_frequencies[cell] += 1
 
         return cell_document_frequencies
