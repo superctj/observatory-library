@@ -525,6 +525,19 @@ class BERTFamilyModelWrapper(ModelWrapper):
 
         return all_embeddings
 
+    def infer_embeddings(self, encoded_inputs: dict) -> torch.FloatTensor:
+
+        for key in encoded_inputs:
+            encoded_inputs[key] = encoded_inputs[key].to(self.device)
+
+        with torch.no_grad():
+            outputs = self.model(**encoded_inputs)
+
+        batch_last_hidden_state = outputs.last_hidden_state
+        column_embeddings = batch_last_hidden_state[:, 0, :]
+
+        return column_embeddings
+
 
 class BertModelWrapper(BERTFamilyModelWrapper):
     def get_model(self) -> BertModel:
