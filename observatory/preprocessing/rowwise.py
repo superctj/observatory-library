@@ -1,36 +1,52 @@
 import pandas as pd
+import torch
+
+from transformers import PreTrainedTokenizer
 
 from observatory.preprocessing.preprocessing_wrapper import PreprocessingWrapper
 
 
-def convert_table_to_row_list(table: pd.DataFrame) -> list[str]:
-    """Convert a table to a list of columns where each column is a string.
-
-    Args:
-        table: A pandas DataFrame representing a table.
-
-    Returns:
-        A list of columns where each column is represented as a string
-        consisting of the column header followed by column values.
-    """
-
-    rows = []
-
-    for _, row in table.iterrows():
-        row_str = " ".join(
-            [f"{col} {str(val)}" for col, val in zip(table.columns, row)]
-        )
-        rows.append(row_str)
-
-    return rows
-
-
 class RowwiseMaxRowsPreprocessor(PreprocessingWrapper):
-    """Rowwise preprocessing for BERT-like models. Each table is serialized
-    to a string as follows:
+    """Rowwise preprocessing for BERT-like models. The preprocessor attempts
+    to serialize each table rowwise to a sequence of tokens (up to the maximum
+    number of rows that fit within the model input size) as follows:
 
     [CLS]<row 1>[CLS]<row 2>[CLS]...[CLS][row n][SEP]
     """
+
+    def __init__(
+        self,
+        tokenizer: PreTrainedTokenizer,
+        max_input_size: int,
+        include_column_names: bool = True,
+    ):
+        super().__init__(tokenizer, max_input_size)
+
+        self.include_column_names = include_column_names
+
+    def apply_text_template(self, table: pd.DataFrame) -> list[str]:
+        """Convert a table to a list of columns following a text template.
+
+        Args:
+            table: A Pandas DataFrame representing a table.
+
+        Returns:
+            A list of row texts following the template.
+        """
+
+        templated_rows = []
+
+        for _, row in table.iterrows():
+            if self.include_column_names:
+                row_text = " ".join(
+                    [f"{col} {val}" for col, val in zip(table.columns, row)]
+                )
+            else:
+                row_text = " ".join([val for val in row])
+
+            templated_rows.append(row_text)
+
+        return templated_rows
 
     def is_fit(self, sample_table: pd.DataFrame) -> bool:
         """Check if a table fits within the maximum model input size.
@@ -43,23 +59,22 @@ class RowwiseMaxRowsPreprocessor(PreprocessingWrapper):
             input size.
         """
 
-        rows = convert_table_to_row_list(sample_table)
+        templated_rows = self.apply_text_template(sample_table)
         current_tokens = []
 
-        for row in rows:
-            # Tokenize row without special tokens
-            row_tokens = self.tokenizer.tokenize(row)
-
-            # [CLS] and [SEP] here are only placeholders (different models can
-            # use different special tokens)
-            row_tokens = ["[CLS]"] + row_tokens + ["[SEP]"]
+        for row in templated_rows:
+            # Tokenize the row
+            row_tokens = (
+                [self.tokenizer.cls_token]
+                + self.tokenizer.tokenize(row)
+                + [self.tokenizer.sep_token]
+            )
 
             # Check if adding new tokens would exceed the max input size
             if len(current_tokens) + len(row_tokens) > self.max_input_size:
-                # If so, stop and return false
                 return False
             else:
-                # If not, remove the last [SEP] token and concatenate new tokens
+                # Remove the last [SEP] token and concatenate new tokens
                 current_tokens = current_tokens[:-1] + row_tokens
 
         return True
@@ -72,8 +87,7 @@ class RowwiseMaxRowsPreprocessor(PreprocessingWrapper):
             table: A pandas DataFrame representing a table.
 
         Returns:
-            The maximum number of rows that fit within the maximum model input
-            size.
+            The maximum number of rows that fit within the model input size.
         """
 
         low = 0
@@ -91,27 +105,25 @@ class RowwiseMaxRowsPreprocessor(PreprocessingWrapper):
         # When low == high, we found the maximum number of rows
         return low
 
-    def truncate_rowwise(self, tables: list[pd.DataFrame]):
+    def truncate_rowwise(self, table: pd.DataFrame):
         """Truncate tables based on rowwise serialization to fit within the
         maximum model input size.
 
         Args:
-            tables: A list of tables.
+            table: A table in Pandas data frame.
 
         Returns:
-            truncated_tables: A list of truncated tables.
+            truncated_tables: A truncated table.
         """
 
-        truncated_tables = []
+        max_rows_fit = self.max_rows_fit(table)
 
-        for tbl in tables:
-            max_rows_fit = self.max_rows_fit(tbl)
+        if max_rows_fit < 1:
+            raise ValueError(
+                "The table is too wide to fit within the maximum model input "
+                "size. Consider splitting the table columnwise."
+            )
+        else:
+            truncated_table = table.iloc[:max_rows_fit, :]
 
-            if max_rows_fit < 1:
-                # TODO: raise error of wide tables
-                continue
-
-            truncated_tbl = tbl.iloc[:max_rows_fit, :]
-            truncated_tables.append(truncated_tbl)
-
-        return truncated_tables
+        return truncated_table
