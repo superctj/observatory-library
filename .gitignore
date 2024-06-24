@@ -1,3 +1,6 @@
 .pytest_cache/
 
 __pycache__/
+
+# Local stress tests
+local_stress_test_*.py
