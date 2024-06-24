@@ -294,3 +294,26 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
         print(encoded_inputs)
 
         return encoded_inputs
+
+    def batch_serialize_columnwise(self, tables: list[pd.DataFrame]) -> dict:
+        """Batch serialize a list of tables columnwise to a sequence of tokens.
+
+        Args:
+            tables:
+                A list of tables in Pandas data frame.
+
+        Returns:
+            encoded_inputs:
+                A dictionary containing encoded inputs.
+        """
+
+        templated_cols = []
+
+        for tbl in tables:
+            templated_cols.extend(self.apply_text_template(tbl))
+
+        encoded_inputs = self.tokenizer(
+            templated_cols, padding=True, truncation=True, return_tensors="pt"
+        )
+
+        return encoded_inputs
