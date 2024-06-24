@@ -1,5 +1,3 @@
-from typing import Union
-
 import pandas as pd
 import torch
 
@@ -421,8 +419,10 @@ class BERTFamilyModelWrapper(ModelWrapper):
         return all_embeddings
 
     def infer_embeddings(
-        self, encoded_inputs: dict, cls_positions: list[list[int]] = None
-    ) -> Union[torch.FloatTensor, list[torch.FloatTensor]]:
+        self,
+        encoded_inputs: dict,
+        cls_positions: list[list[int]] = None,
+    ) -> torch.FloatTensor:
 
         for key in encoded_inputs:
             encoded_inputs[key] = encoded_inputs[key].to(self.device)
@@ -442,8 +442,74 @@ class BERTFamilyModelWrapper(ModelWrapper):
                     [last_hidden_state[pos, :] for pos in cls_positions[i]],
                     dim=0,
                 )
+                assert cls_embeddings.dim() == 2, (
+                    "`cls_embeddings` should be a 2D tensor but has "
+                    f"{cls_embeddings.dim()} dimensions."
+                )
 
                 embeddings.append(cls_embeddings)
+
+            embeddings = torch.stack(embeddings, dim=0)
+
+        assert embeddings.dim() == 2, (
+            "`embeddings` should be a 2D tensor but has "
+            f"{cls_embeddings.dim()} dimensions."
+        )
+        assert embeddings.shape[0] == encoded_inputs["input_ids"].shape[0]
+        assert embeddings.shape[1] == self.model.config.hidden_size
+
+        return embeddings
+
+    def batch_infer_embeddings(
+        self,
+        encoded_inputs: dict,
+        batch_size: int,
+        cls_positions: list[list[int]] = None,
+    ) -> torch.FloatTensor:
+        """Infer embeddings in batches.
+
+        Args:
+            encoded_inputs:
+                A dictionary of encoded inputs.
+            batch_size:
+                The batch size for inference.
+            cls_positions:
+                Positions of [CLS] tokens per table.
+
+        Returns:
+            embeddings:
+                A tensor of embeddings or a list of tensors of embeddings.
+        """
+
+        num_inputs = encoded_inputs["input_ids"].shape[0]
+        embeddings = torch.zeros(
+            (num_inputs, self.model.config.hidden_size), dtype=torch.float
+        )
+
+        num_batches = (
+            num_inputs // batch_size
+            if num_inputs % batch_size == 0
+            else num_inputs // batch_size + 1
+        )
+
+        for i in range(num_batches):
+            start = i * batch_size
+            end = (i + 1) * batch_size
+
+            batch_encoded_inputs = {
+                key: value[start:end] for key, value in encoded_inputs.items()
+            }
+
+            if cls_positions:
+                batch_cls_positions = cls_positions[start:end]
+            else:
+                batch_cls_positions = None
+
+            batch_embeddings = self.infer_embeddings(
+                batch_encoded_inputs, batch_cls_positions
+            )
+
+            embeddings[start:end] = batch_embeddings
 
         return embeddings
 
