@@ -13,7 +13,6 @@ from observatory.preprocessing.cellwise import (
     convert_table_to_cell_lists_columnwise,
     convert_table_to_cell_lists_rowwise,
 )
-from observatory.preprocessing.columnwise import convert_table_to_col_list
 from observatory.preprocessing.rowwise import convert_table_to_row_list
 from observatory.preprocessing.tablewise import (
     convert_table_to_str_columnwise,
