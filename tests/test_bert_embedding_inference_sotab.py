@@ -5,10 +5,13 @@ import torch
 
 from torch.utils.data import DataLoader
 
-from observatory.datasets.sotab import SotabDataset
+from observatory.datasets.sotab import SotabDataset, collate_fn
 from observatory.models.bert_family import BertModelWrapper
 from observatory.preprocessing.columnwise import (
     ColumnwiseDocumentFrequencyBasedPreprocessor,
+)
+from observatory.utils.test_util import (
+    assert_num_embeddings_matches_number_columns,
 )
 
 
@@ -19,20 +22,28 @@ class TestBertEmbeddingInference(unittest.TestCase):
             "sample_data/sotab",
         )
         metadata_filepath = os.path.join(data_dir, "table_inventory.csv")
+        sotab_dataset = SotabDataset(data_dir, metadata_filepath)
+
+        # The preprocessor below serializes each column to a sequence as input
+        # to the model, so `inference_batch_size` can be different from
+        # `table_batch_size` used in the table data loader.
+        table_batch_size = 4
+        self.inference_batch_size = 16
+
+        self.sotab_dataloader = DataLoader(
+            sotab_dataset,
+            batch_size=table_batch_size,
+            shuffle=False,
+            collate_fn=collate_fn,
+        )
 
         model_name = "google-bert/bert-base-uncased"
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        self.sotab_dataset = SotabDataset(data_dir, metadata_filepath)
-        cell_frequencies = (
-            self.sotab_dataset.compute_cell_document_frequencies()
-        )
-        # self.sotab_dataloader = DataLoader(
-        #     sotab_dataset, batch_size=1, shuffle=False
-        # )
         self.model_wrapper = BertModelWrapper(model_name, device)
 
-        # Preprocessor for inferring column embeddings
+        # Cell document frequency-based preprocessor for inferring column
+        # embeddings
+        cell_frequencies = sotab_dataset.compute_cell_document_frequencies()
         self.columnwise_preprocessor = (
             ColumnwiseDocumentFrequencyBasedPreprocessor(
                 tokenizer=self.model_wrapper.tokenizer,
@@ -45,16 +56,20 @@ class TestBertEmbeddingInference(unittest.TestCase):
         )
 
     def test_infer_column_embeddings(self):
-        for table in self.sotab_dataset:
-            encoded_inputs = self.columnwise_preprocessor.serialize_columnwise(
-                table
+        for batch_tables in self.sotab_dataloader:
+            encoded_inputs = (
+                self.columnwise_preprocessor.batch_serialize_columnwise(
+                    batch_tables
+                )
             )
 
-            column_embeddings = self.model_wrapper.infer_embeddings(
-                encoded_inputs
+            column_embeddings = self.model_wrapper.batch_infer_embeddings(
+                encoded_inputs, batch_size=self.inference_batch_size
             )
 
-            assert column_embeddings.shape[0] == len(table.columns)
+            assert_num_embeddings_matches_number_columns(
+                batch_tables, column_embeddings
+            )
 
     def test_infer_row_embeddings(self):
         pass
