@@ -20,6 +20,7 @@ class SotabDataset(Dataset):
 
         self.data_dir = data_dir
         self.metadata = pd.read_csv(metadata_filepath)
+        self.transform = transform
 
     def __len__(self):
         return self.metadata.shape[0]
@@ -38,6 +39,9 @@ class SotabDataset(Dataset):
 
         # Convert all columns to string
         table = table.astype(str)
+
+        if self.transform:
+            table = self.transform(table)
 
         return table
 
@@ -75,3 +79,7 @@ class SotabDataset(Dataset):
                         cell_document_frequencies[cell] += 1
 
         return cell_document_frequencies
+
+
+def collate_fn(batch: list[pd.DataFrame]):
+    return batch
