@@ -8,8 +8,8 @@ from observatory.preprocessing.preprocessing_wrapper import PreprocessingWrapper
 
 class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
     """Columnwise preprocessing for BERT-like models. The preprocessor attempts
-    to serialize each table to a sequence of tokens (up to the maximum number
-    of rows that fit within the model input size) as follows:
+    to serialize each table columnwise to a sequence of tokens (up to the
+    maximum number of rows that fit within the model input size) as follows:
 
     [CLS]<col 1>[CLS]<col 2>[CLS]...[CLS][col n][SEP]
     """
@@ -85,8 +85,7 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
             table: A pandas DataFrame representing a table.
 
         Returns:
-            The maximum number of rows that fit within the maximum model input
-            size.
+            The maximum number of rows that fit within the model input size.
         """
 
         low = 0
