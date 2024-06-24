@@ -50,17 +50,15 @@ class TestBertEmbeddingInference(unittest.TestCase):
                 max_input_size=self.model_wrapper.max_input_size,
                 cell_frequencies=cell_frequencies,
                 include_table_name=True,
-                include_column_name=True,
+                include_column_names=True,
                 include_column_stats=True,
             )
         )
 
     def test_infer_column_embeddings(self):
         for batch_tables in self.sotab_dataloader:
-            encoded_inputs = (
-                self.columnwise_preprocessor.batch_serialize_columnwise(
-                    batch_tables
-                )
+            encoded_inputs = self.columnwise_preprocessor.serialize_columnwise(
+                batch_tables
             )
 
             column_embeddings = self.model_wrapper.batch_infer_embeddings(
