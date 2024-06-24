@@ -9,15 +9,17 @@ from transformers import (
 )
 
 from observatory.models.model_wrapper import ModelWrapper
-from observatory.preprocessing.cellwise import (
-    convert_table_to_cell_lists_columnwise,
-    convert_table_to_cell_lists_rowwise,
-)
+
+# from observatory.preprocessing.cellwise import (
+#     convert_table_to_cell_lists_columnwise,
+#     convert_table_to_cell_lists_rowwise,
+# )
 from observatory.preprocessing.rowwise import convert_table_to_row_list
-from observatory.preprocessing.tablewise import (
-    convert_table_to_str_columnwise,
-    convert_table_to_str_rowwise,
-)
+
+# from observatory.preprocessing.tablewise import (
+#     convert_table_to_str_columnwise,
+#     convert_table_to_str_rowwise,
+# )
 
 
 class BERTFamilyModelWrapper(ModelWrapper):
@@ -270,73 +272,73 @@ class BERTFamilyModelWrapper(ModelWrapper):
 
         return all_embeddings
 
-    def infer_table_embeddings(
-        self,
-        tables: list[pd.DataFrame],
-        serialize_by_row: bool,
-        batch_size: int,
-    ) -> list[torch.Tensor]:
-        """Table embedding inference.
+    # def infer_table_embeddings(
+    #     self,
+    #     tables: list[pd.DataFrame],
+    #     serialize_by_row: bool,
+    #     batch_size: int,
+    # ) -> list[torch.Tensor]:
+    #     """Table embedding inference.
 
-        Args:
-            tables:
-                A list of tables.
-            serialize_by_row:
-                Whether to serialize the tables by row (if false, tables will
-                be serialized by column).
-            batch_size:
-                The batch size for inference.
+    #     Args:
+    #         tables:
+    #             A list of tables.
+    #         serialize_by_row:
+    #             Whether to serialize the tables by row (if false, tables will
+    #             be serialized by column).
+    #         batch_size:
+    #             The batch size for inference.
 
-        Returns:
-            all_embeddings:
-                A list of table embeddings.
-        """
+    #     Returns:
+    #         all_embeddings:
+    #             A list of table embeddings.
+    #     """
 
-        num_tables = len(tables)
-        all_embeddings = []
+    #     num_tables = len(tables)
+    #     all_embeddings = []
 
-        batch_input_ids = []
-        batch_attention_masks = []
-        batch_cls_positions = []
+    #     batch_input_ids = []
+    #     batch_attention_masks = []
+    #     batch_cls_positions = []
 
-        for tbl_idx, tbl in enumerate(tables):
-            input_tokens, cls_positions = self.serialize_table(
-                tbl, serialize_by_row
-            )
+    #     for tbl_idx, tbl in enumerate(tables):
+    #         input_tokens, cls_positions = self.serialize_table(
+    #             tbl, serialize_by_row
+    #         )
 
-            input_ids = self.tokenizer.convert_tokens_to_ids(input_tokens)
-            attention_mask = [
-                1 if token != self.tokenizer.pad_token else 0
-                for token in input_tokens
-            ]
+    #         input_ids = self.tokenizer.convert_tokens_to_ids(input_tokens)
+    #         attention_mask = [
+    #             1 if token != self.tokenizer.pad_token else 0
+    #             for token in input_tokens
+    #         ]
 
-            batch_input_ids.append(torch.tensor(input_ids))
-            batch_attention_masks.append(torch.tensor(attention_mask))
-            batch_cls_positions.append(cls_positions)
+    #         batch_input_ids.append(torch.tensor(input_ids))
+    #         batch_attention_masks.append(torch.tensor(attention_mask))
+    #         batch_cls_positions.append(cls_positions)
 
-            if len(batch_input_ids) == batch_size or tbl_idx + 1 == num_tables:
-                batch_input_ids_tensor = torch.stack(batch_input_ids, dim=0).to(
-                    self.device
-                )
-                batch_attention_masks_tensor = torch.stack(
-                    batch_attention_masks, dim=0
-                ).to(self.device)
+    #         if len(batch_input_ids) == batch_size or tbl_idx + 1 == num_tables:
+    #             batch_input_ids_tensor = torch.stack(batch_input_ids, dim=0).to(
+    #                 self.device
+    #             )
+    #             batch_attention_masks_tensor = torch.stack(
+    #                 batch_attention_masks, dim=0
+    #             ).to(self.device)
 
-                with torch.no_grad():
-                    outputs = self.model(
-                        input_ids=batch_input_ids_tensor,
-                        attention_mask=batch_attention_masks_tensor,
-                    )
+    #             with torch.no_grad():
+    #                 outputs = self.model(
+    #                     input_ids=batch_input_ids_tensor,
+    #                     attention_mask=batch_attention_masks_tensor,
+    #                 )
 
-                batch_last_hidden_state = outputs.last_hidden_state
+    #             batch_last_hidden_state = outputs.last_hidden_state
 
-                for last_hidden_state in batch_last_hidden_state:
-                    all_embeddings.append(last_hidden_state[0, :])
+    #             for last_hidden_state in batch_last_hidden_state:
+    #                 all_embeddings.append(last_hidden_state[0, :])
 
-        # The number of embeddings should match the number of tables
-        assert len(all_embeddings) == num_tables
+    #     # The number of embeddings should match the number of tables
+    #     assert len(all_embeddings) == num_tables
 
-        return all_embeddings
+    #     return all_embeddings
 
     def infer_cell_embeddings(
         self,
@@ -448,13 +450,12 @@ class BERTFamilyModelWrapper(ModelWrapper):
 
                 embeddings.append(cls_embeddings)
 
-            embeddings = torch.stack(embeddings, dim=0)
+            embeddings = torch.cat(embeddings, dim=0)
 
         assert embeddings.dim() == 2, (
             "`embeddings` should be a 2D tensor but has "
             f"{cls_embeddings.dim()} dimensions."
         )
-        assert embeddings.shape[0] == encoded_inputs["input_ids"].shape[0]
         assert embeddings.shape[1] == self.model.config.hidden_size
 
         return embeddings
