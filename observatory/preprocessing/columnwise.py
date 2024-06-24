@@ -6,27 +6,6 @@ from transformers import PreTrainedTokenizer
 from observatory.preprocessing.preprocessing_wrapper import PreprocessingWrapper
 
 
-def convert_table_to_col_list(table: pd.DataFrame) -> list[str]:
-    """Convert a table to a list of columns where each column is a string.
-
-    Args:
-        table: A pandas DataFrame representing a table.
-
-    Returns:
-        A list of rows where each row is represented as a string
-        consisting of column headers followed by column values.
-    """
-
-    cols = []
-
-    for i in range(len(table.columns)):
-        str_values = " ".join(table.iloc[:, i].astype(str).tolist())
-        col_str = f"{table.columns[i]} {str_values}"
-        cols.append(col_str)
-
-    return cols
-
-
 class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
     """Columnwise preprocessing for BERT-like models. The preprocessor attempts
     to serialize each table to a sequence of tokens (up to the maximum number
@@ -34,6 +13,38 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
 
     [CLS]<col 1>[CLS]<col 2>[CLS]...[CLS][col n][SEP]
     """
+
+    def __init__(
+        self,
+        tokenizer: PreTrainedTokenizer,
+        max_input_size: int,
+        include_column_names: bool = True,
+    ):
+        super().__init__(tokenizer, max_input_size)
+
+        self.include_column_names = include_column_names
+
+    def apply_text_template(self, table: pd.DataFrame) -> list[str]:
+        """Convert a table to a list of columns following a text template.
+
+        Args:
+            table: A Pandas DataFrame representing a table.
+
+        Returns:
+            A list of column texts following the template.
+        """
+
+        templated_cols = []
+
+        for i in range(len(table.columns)):
+            col_text = " ".join(table.iloc[:, i].tolist())
+
+            if self.include_column_names:
+                col_text = table.columns[i] + " " + col_text
+
+            templated_cols.append(col_text)
+
+        return templated_cols
 
     def is_fit(self, sample_table: pd.DataFrame) -> bool:
         """Check if a table fits within the maximum model input size.
@@ -46,10 +57,10 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
             input size.
         """
 
-        cols = convert_table_to_col_list(sample_table)
+        templated_cols = self.apply_text_template(sample_table)
         current_tokens = []
 
-        for col in cols:
+        for col in templated_cols:
             # Tokenize the column
             col_tokens = (
                 [self.tokenizer.cls_token]
@@ -59,10 +70,9 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
 
             # Check if adding new tokens would exceed the max input size
             if len(current_tokens) + len(col_tokens) > self.max_input_size:
-                # If so, stop and return false
                 return False
             else:
-                # If not, remove the last [SEP] token and concatenate new tokens
+                # Remove the last [SEP] token and append new tokens
                 current_tokens = current_tokens[:-1] + col_tokens
 
         return True
@@ -138,12 +148,12 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
 
         for tbl in tables:
             truncated_tbl = self.truncate_columnwise(tbl)
-            cols = convert_table_to_col_list(truncated_tbl)
+            templated_cols = self.apply_text_template(truncated_tbl)
 
             input_tokens = []
             cls_positions = []
 
-            for col in cols:
+            for col in templated_cols:
                 col_tokens = self.tokenizer.tokenize(col)
                 col_tokens = (
                     [self.tokenizer.cls_token]
@@ -151,13 +161,13 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
                     + [self.tokenizer.sep_token]
                 )
 
-                current_length = len(input_tokens) + len(col_tokens)
-                if current_length > self.max_input_size:
+                new_length = len(input_tokens) + len(col_tokens)
+                if new_length > self.max_input_size:
                     raise ValueError(
-                        "The length of the serialized table ("
-                        f"{current_length}) exceeds the maximum model input "
-                        f"size ({self.max_input_size}). Preprocess the table "
-                        "to fit the model input size."
+                        f"The length of the serialized table ({new_length}) "
+                        "exceeds the maximum model input size "
+                        f"({self.max_input_size}). Consider splitting the "
+                        "table columnwise to fit the model input size."
                     )
                 else:
                     input_tokens = input_tokens[:-1] + col_tokens
@@ -213,16 +223,14 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
         max_input_size: int,
         cell_frequencies: dict[str, int],
         include_table_name: bool = True,
-        include_column_name: bool = True,
+        include_column_names: bool = True,
         include_column_stats: bool = True,
     ):
         super().__init__(tokenizer, max_input_size)
 
         self.include_table_name = include_table_name
-        self.include_column_name = include_column_name
+        self.include_column_names = include_column_names
         self.include_column_stats = include_column_stats
-
-        # Compute cell document frequencies
         self.cell_frequencies = cell_frequencies
 
     def is_fit(self):
@@ -246,6 +254,17 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
         return sorted_values_per_column
 
     def apply_text_template(self, table: pd.DataFrame) -> str:
+        """Convert a table to a list of columns following a text template.
+
+        Args:
+            table:
+                A Pandas DataFrame representing a table.
+
+        Returns:
+            templated_cols:
+                A list of column texts following the template.
+        """
+
         table_name = table.attrs.get("name")
 
         if not table_name and self.include_table_name:
@@ -264,7 +283,7 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
             if self.include_table_name:
                 col_text += f"{table_name}. "
 
-            if self.include_column_name:
+            if self.include_column_names:
                 col_text += (
                     f"{table.columns[i]} contains {len(col_values)} values"
                 )
@@ -283,19 +302,7 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
 
         return templated_cols
 
-    def serialize_columnwise(self, table: pd.DataFrame) -> dict:
-        """Serialize a table columnwise to a sequence of tokens."""
-
-        templated_cols = self.apply_text_template(table)
-        encoded_inputs = self.tokenizer(
-            templated_cols, padding=True, truncation=True, return_tensors="pt"
-        )
-
-        print(encoded_inputs)
-
-        return encoded_inputs
-
-    def batch_serialize_columnwise(self, tables: list[pd.DataFrame]) -> dict:
+    def serialize_columnwise(self, tables: list[pd.DataFrame]) -> dict:
         """Batch serialize a list of tables columnwise to a sequence of tokens.
 
         Args:
