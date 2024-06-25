@@ -84,10 +84,12 @@ class RowwiseMaxRowsPreprocessor(PreprocessingWrapper):
         input size.
 
         Args:
-            table: A pandas DataFrame representing a table.
+            table:
+                A Pandas DataFrame representing a table.
 
         Returns:
-            The maximum number of rows that fit within the model input size.
+            low:
+                The maximum number of rows that fit within the model input size.
         """
 
         low = 0
@@ -127,3 +129,79 @@ class RowwiseMaxRowsPreprocessor(PreprocessingWrapper):
             truncated_table = table.iloc[:max_rows_fit, :]
 
         return truncated_table
+
+    def serialize_rowwise(
+        self, tables: list[pd.DataFrame]
+    ) -> tuple[dict, list[list[int]]]:
+        """Serialize each table rowwise to a sequence of tokens.
+
+        Args:
+            tables:
+                A list of tables.
+
+        Returns:
+            encoded_inputs:
+                A dictionary containing encoded inputs.
+            batch_cls_positions:
+                Lists of positions of [CLS] tokens in each serialized sequence.
+        """
+
+        batch_input_ids = []
+        batch_attention_masks = []
+        batch_cls_positions = []
+
+        for tbl in tables:
+            # Truncate tables to fit within the maximum model input size
+            truncated_tbl = self.truncate_rowwise(tbl)
+            # Apply the text template
+            templated_rows = self.apply_text_template(truncated_tbl)
+
+            # Serialize each row to a sequence of tokens
+            input_tokens = []
+            cls_positions = []
+
+            for row in templated_rows:
+                row_tokens = (
+                    [self.tokenizer.cls_token]
+                    + self.tokenizer.tokenize(row)
+                    + [self.tokenizer.sep_token]
+                )
+
+                new_length = len(input_tokens) + len(row_tokens)
+
+                if new_length > self.max_input_size:
+                    raise ValueError(
+                        f"The length of the serialized table ({new_length}) "
+                        "exceeds the maximum model input size "
+                        f"({self.max_input_size}). Consider splitting the "
+                        "table columnwise to fit the model input size."
+                    )
+                else:
+                    input_tokens = input_tokens[:-1] + row_tokens
+                    cls_positions.append(len(input_tokens) - len(row_tokens))
+
+            # Pad the sequence if necessary
+            if len(input_tokens) < self.max_input_size:
+                pad_length = self.max_input_size - len(input_tokens)
+                input_tokens += [self.tokenizer.pad_token] * pad_length
+
+            input_ids = torch.tensor(
+                self.tokenizer.convert_tokens_to_ids(input_tokens)
+            )
+            attention_mask = torch.tensor(
+                [
+                    1 if token != self.tokenizer.pad_token else 0
+                    for token in input_tokens
+                ]
+            )
+
+            batch_input_ids.append(input_ids)
+            batch_attention_masks.append(attention_mask)
+            batch_cls_positions.append(cls_positions)
+
+        encoded_inputs = {
+            "input_ids": torch.stack(batch_input_ids, dim=0),
+            "attention_mask": torch.stack(batch_attention_masks, dim=0),
+        }
+
+        return encoded_inputs, batch_cls_positions
