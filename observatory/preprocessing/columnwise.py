@@ -108,7 +108,8 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
         maximum model input size.
 
         Args:
-            table: A table in Pandas data frame.
+            table:
+                A Pandas DataFrame representing a table.
 
         Returns:
             truncated_table: A truncated table.
@@ -128,17 +129,18 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
 
     def serialize_columnwise(
         self, tables: list[pd.DataFrame]
-    ) -> tuple[dict, list]:
-        """Serialize a table columnwise to a sequence of tokens.
+    ) -> tuple[dict, list[list[int]]]:
+        """Serialize each table columnwise to a sequence of tokens.
 
         Args:
-            table: A table in Pandas data frame.
+            tables:
+                A list of tables.
 
         Returns:
             encoded_inputs:
                 A dictionary containing encoded inputs.
-            cls_positions:
-                Positions of the [CLS] tokens in the serialized sequence.
+            batch_cls_positions:
+                Lists of positions of [CLS] tokens in each serialized sequence.
         """
 
         batch_input_ids = []
@@ -146,21 +148,24 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
         batch_cls_positions = []
 
         for tbl in tables:
+            # Truncate tables to fit within the maximum model input size
             truncated_tbl = self.truncate_columnwise(tbl)
+            # Apply the text template
             templated_cols = self.apply_text_template(truncated_tbl)
 
+            # Serialize each row to a sequence of tokens
             input_tokens = []
             cls_positions = []
 
             for col in templated_cols:
-                col_tokens = self.tokenizer.tokenize(col)
                 col_tokens = (
                     [self.tokenizer.cls_token]
-                    + col_tokens
+                    + self.tokenizer.tokenize(col)
                     + [self.tokenizer.sep_token]
                 )
 
                 new_length = len(input_tokens) + len(col_tokens)
+
                 if new_length > self.max_input_size:
                     raise ValueError(
                         f"The length of the serialized table ({new_length}) "
@@ -172,7 +177,7 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
                     input_tokens = input_tokens[:-1] + col_tokens
                     cls_positions.append(len(input_tokens) - len(col_tokens))
 
-            # pad the sequence if necessary
+            # Pad the sequence if necessary
             if len(input_tokens) < self.max_input_size:
                 pad_length = self.max_input_size - len(input_tokens)
                 input_tokens += [self.tokenizer.pad_token] * pad_length
