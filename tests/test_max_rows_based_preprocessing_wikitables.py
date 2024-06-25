@@ -89,40 +89,42 @@ class TestBertEmbeddingInference(unittest.TestCase):
 
     def test_infer_table_embeddings(self):
         # Max rows-based preprocessor for inferring table embeddings
-        tablewise_max_rows_preprocessor = TablewiseMaxRowsPreprocessor(
-            tokenizer=self.model_wrapper.tokenizer,
-            max_input_size=self.model_wrapper.max_input_size,
-            by_row=True,
-            include_table_name=True,
-            include_column_names=True,
-        )
-
-        for batch_tables in self.wikitables_dataloader:
-            encoded_inputs, cls_positions = (
-                tablewise_max_rows_preprocessor.serialize(batch_tables)
+        for by_row in [True, False]:
+            tablewise_max_rows_preprocessor = TablewiseMaxRowsPreprocessor(
+                tokenizer=self.model_wrapper.tokenizer,
+                max_input_size=self.model_wrapper.max_input_size,
+                by_row=by_row,
+                include_table_name=True,
+                include_column_names=True,
             )
 
-            # Here we do not need to pass in positions of [CLS] tokens as we
-            # know there is only one [CLS] token at the beginning of each
-            # sequence that represents the entire table
-            table_embeddings = self.model_wrapper.infer_embeddings(
-                encoded_inputs
-            )
+            for batch_tables in self.wikitables_dataloader:
+                encoded_inputs, cls_positions = (
+                    tablewise_max_rows_preprocessor.serialize(batch_tables)
+                )
 
-            assert_num_embeddings_matches_num_tables(
-                batch_tables, table_embeddings
-            )
+                # Here we do not need to pass in positions of [CLS] tokens as we
+                # know there is only one [CLS] token at the beginning of each
+                # sequence that represents the entire table
+                table_embeddings = self.model_wrapper.infer_embeddings(
+                    encoded_inputs
+                )
 
-            assert_num_embeddings_matches_num_tables(
-                cls_positions, table_embeddings
-            )
+                assert_num_embeddings_matches_num_tables(
+                    batch_tables, table_embeddings
+                )
 
-            # Passing in positions of [CLS] tokens should yield the same results
-            same_table_embeddings = self.model_wrapper.infer_embeddings(
-                encoded_inputs, cls_positions
-            )
+                assert_num_embeddings_matches_num_tables(
+                    cls_positions, table_embeddings
+                )
 
-            assert torch.equal(table_embeddings, same_table_embeddings)
+                # Passing in positions of [CLS] tokens should yield the same
+                # results
+                same_table_embeddings = self.model_wrapper.infer_embeddings(
+                    encoded_inputs, cls_positions
+                )
+
+                assert torch.equal(table_embeddings, same_table_embeddings)
 
     # def test_infer_cell_embeddings(self):
     #     def assert_num_cells_matches_num_embeddings(
