@@ -6,7 +6,7 @@ from observatory.preprocessing.preprocessing_wrapper import PreprocessingWrapper
 
 
 class TablewiseMaxRowsPreprocessor(PreprocessingWrapper):
-    """Preprocessing for table embedding inference of BERT-like model. The
+    """Preprocessing for table embedding inference of BERT-like models. The
     preprocessor attempts to serialize each table columnwise or rowwise to a
     sequence of tokens (up to the maximum number of rows that fit within the
     model input size).
@@ -26,9 +26,8 @@ class TablewiseMaxRowsPreprocessor(PreprocessingWrapper):
         self.include_table_name = include_table_name
         self.include_column_names = include_column_names
 
-    def apply_text_template(self, table: pd.DataFrame) -> list[str]:
-        """Convert a table to a list of columns or rows following a text
-        template
+    def apply_text_template(self, table: pd.DataFrame) -> str:
+        """Convert a table to a text sequence following a template.
 
         Args:
             table:
@@ -36,7 +35,7 @@ class TablewiseMaxRowsPreprocessor(PreprocessingWrapper):
 
         Returns:
             templated_table:
-                A list of column or row texts following the template.
+                A text sequence representing the flattened table.
         """
 
         if self.include_table_name:
@@ -71,7 +70,7 @@ class TablewiseMaxRowsPreprocessor(PreprocessingWrapper):
 
         return templated_table
 
-    def is_fit_columnwise(self, table: pd.DataFrame) -> bool:
+    def is_fit(self, table: pd.DataFrame) -> bool:
         """Check if a table fits within the maximum model input size based on
         rowwise or columnwise serialization.
 
@@ -103,7 +102,8 @@ class TablewiseMaxRowsPreprocessor(PreprocessingWrapper):
             table: A Pandas DataFrame representing a table.
 
         Returns:
-            The maximum number of rows that fit within the model input size.
+            low:
+                The maximum number of rows that fit within the model input size.
         """
 
         low = 0
@@ -121,7 +121,7 @@ class TablewiseMaxRowsPreprocessor(PreprocessingWrapper):
         # When low == high, we found the maximum number of rows
         return low
 
-    def truncate(self, table: pd.DataFrame):
+    def truncate(self, table: pd.DataFrame) -> pd.DataFrame:
         """Truncate a table based on rowwise or columnwise serialization to fit
         within the maximum model input size.
 
@@ -161,7 +161,10 @@ class TablewiseMaxRowsPreprocessor(PreprocessingWrapper):
                 Lists of positions of [CLS] tokens in each serialized sequence.
         """
 
-        templated_tables = [self.apply_text_template(tbl) for tbl in tables]
+        templated_tables = [
+            self.apply_text_template(self.truncate(tbl)) for tbl in tables
+        ]
+
         encoded_inputs = self.tokenizer(
             templated_tables,
             padding=True,
