@@ -60,3 +60,30 @@ def assert_num_embeddings_matches_num_tables(
     """
 
     assert embeddings.shape[0] == len(tables)
+
+
+def assert_num_embeddings_matches_num_cells(
+    cell_embeddings: list[torch.FloatTensor],
+    tables: list[pd.DataFrame] = None,
+    cell_token_spans: list[list[tuple[int]]] = None,
+):
+    """Assert the number of cell embeddings matches the number of cells in each
+    table.
+
+    Args:
+        cell_embeddings:
+            Cell embeddings of shape (<num_embeddings>, <embedding size>).
+        tables:
+            A list of tables.
+        cell_token_spans:
+            Lists of cell token spans per table.
+    """
+
+    if tables:
+        for i, tbl in enumerate(tables):
+            assert cell_embeddings[i].shape[0] == tbl.size
+    else:
+        assert cell_token_spans is not None
+
+        for i, spans in enumerate(cell_token_spans):
+            assert cell_embeddings[i].shape[0] == len(spans)
