@@ -28,10 +28,12 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
         """Convert a table to a list of columns following a text template.
 
         Args:
-            table: A Pandas DataFrame representing a table.
+            table:
+                A Pandas DataFrame representing a table.
 
         Returns:
-            A list of column texts following the template.
+            templated_cols:
+                A list of column texts following the template.
         """
 
         templated_cols = []
@@ -236,9 +238,6 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
         self.include_column_names = include_column_names
         self.include_column_stats = include_column_stats
         self.cell_frequencies = cell_frequencies
-
-    def is_fit(self):
-        pass
 
     def get_sorted_values_per_column(self, table: pd.DataFrame) -> list[str]:
         sorted_values_per_column = []

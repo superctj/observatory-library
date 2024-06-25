@@ -9,5 +9,5 @@ class PreprocessingWrapper(ABC):
         self.max_input_size = max_input_size
 
     @abstractmethod
-    def is_fit(self):
+    def apply_text_template(self):
         pass
