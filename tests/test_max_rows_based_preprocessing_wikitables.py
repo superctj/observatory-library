@@ -9,9 +9,11 @@ from observatory.datasets.wikitables import WikiTablesDataset, collate_fn
 from observatory.models.bert_family import BertModelWrapper
 from observatory.preprocessing.columnwise import ColumnwiseMaxRowsPreprocessor
 from observatory.preprocessing.rowwise import RowwiseMaxRowsPreprocessor
+from observatory.preprocessing.tablewise import TablewiseMaxRowsPreprocessor
 from observatory.utils.test_util import (
-    assert_num_embeddings_matches_number_columns,
-    assert_num_embeddings_matches_number_rows,
+    assert_num_embeddings_matches_num_columns,
+    assert_num_embeddings_matches_num_rows,
+    assert_num_embeddings_matches_num_tables,
 )
 
 
@@ -35,26 +37,6 @@ class TestBertEmbeddingInference(unittest.TestCase):
             collate_fn=collate_fn,
         )
 
-        # Max rows-based preprocessor for inferring column embeddings
-        self.columnwise_max_rows_preprocessor = ColumnwiseMaxRowsPreprocessor(
-            tokenizer=self.model_wrapper.tokenizer,
-            max_input_size=self.model_wrapper.max_input_size,
-            include_column_names=True,
-        )
-
-        # Preprocessor for inferring row embeddings
-        self.rowwise_max_rows_preprocessor = RowwiseMaxRowsPreprocessor(
-            tokenizer=self.model_wrapper.tokenizer,
-            max_input_size=self.model_wrapper.max_input_size,
-            include_column_names=True,
-        )
-
-        # # Preprocessor for inferring table embeddings
-        # self.table_max_rows_preprocessor = TableMaxRowsPreprocessor(
-        #     tokenizer=self.model_wrapper.tokenizer,
-        #     max_input_size=self.model_wrapper.max_input_size,
-        # )
-
         # # Preprocessor for inferring cell embeddings
         # self.cell_max_rows_preprocessor = CellMaxRowsPreprocessor(
         #     tokenizer=self.model_wrapper.tokenizer,
@@ -62,9 +44,16 @@ class TestBertEmbeddingInference(unittest.TestCase):
         # )
 
     def test_infer_column_embeddings(self):
+        # Max rows-based preprocessor for inferring column embeddings
+        columnwise_max_rows_preprocessor = ColumnwiseMaxRowsPreprocessor(
+            tokenizer=self.model_wrapper.tokenizer,
+            max_input_size=self.model_wrapper.max_input_size,
+            include_column_names=True,
+        )
+
         for batch_tables in self.wikitables_dataloader:
             encoded_inputs, cls_positions = (
-                self.columnwise_max_rows_preprocessor.serialize_columnwise(
+                columnwise_max_rows_preprocessor.serialize_columnwise(
                     batch_tables
                 )
             )
@@ -73,44 +62,67 @@ class TestBertEmbeddingInference(unittest.TestCase):
                 encoded_inputs, cls_positions
             )
 
-            assert_num_embeddings_matches_number_columns(
+            assert_num_embeddings_matches_num_columns(
                 batch_tables, column_embeddings
             )
 
     def test_infer_row_embeddings(self):
+        # Preprocessor for inferring row embeddings
+        rowwise_max_rows_preprocessor = RowwiseMaxRowsPreprocessor(
+            tokenizer=self.model_wrapper.tokenizer,
+            max_input_size=self.model_wrapper.max_input_size,
+            include_column_names=True,
+        )
+
         for batch_tables in self.wikitables_dataloader:
             encoded_inputs, cls_positions = (
-                self.rowwise_max_rows_preprocessor.serialize_rowwise(
-                    batch_tables
-                )
+                rowwise_max_rows_preprocessor.serialize_rowwise(batch_tables)
             )
 
             row_embeddings = self.model_wrapper.infer_embeddings(
                 encoded_inputs, cls_positions
             )
 
-            assert_num_embeddings_matches_number_rows(
+            assert_num_embeddings_matches_num_rows(
                 cls_positions, row_embeddings
             )
 
-    # def test_infer_table_embeddings(self):
-    #     # Serialize tables by column to infer table embeddings
-    #     truncated_tables = self.table_max_rows_preprocessor.truncate_columnwise(
-    #         self.wikitables_dataset.all_tables
-    #     )
-    #     table_embeddings = self.model_wrapper.infer_table_embeddings(
-    #         truncated_tables, serialize_by_row=False, batch_size=32
-    #     )
-    #     assert len(table_embeddings) == len(self.wikitables_dataset.all_tables)
+    def test_infer_table_embeddings(self):
+        # Max rows-based preprocessor for inferring table embeddings
+        tablewise_max_rows_preprocessor = TablewiseMaxRowsPreprocessor(
+            tokenizer=self.model_wrapper.tokenizer,
+            max_input_size=self.model_wrapper.max_input_size,
+            by_row=True,
+            include_table_name=True,
+            include_column_names=True,
+        )
 
-    #     # Serialize tables by row to infer table embeddings
-    #     truncated_tables = self.table_max_rows_preprocessor.truncate_rowwise(
-    #         self.wikitables_dataset.all_tables
-    #     )
-    #     table_embeddings = self.model_wrapper.infer_table_embeddings(
-    #         truncated_tables, serialize_by_row=True, batch_size=32
-    #     )
-    #     assert len(table_embeddings) == len(self.wikitables_dataset.all_tables)
+        for batch_tables in self.wikitables_dataloader:
+            encoded_inputs, cls_positions = (
+                tablewise_max_rows_preprocessor.serialize(batch_tables)
+            )
+
+            # Here we do not need to pass in positions of [CLS] tokens as we
+            # know there is only one [CLS] token at the beginning of each
+            # sequence that represents the entire table
+            table_embeddings = self.model_wrapper.infer_embeddings(
+                encoded_inputs
+            )
+
+            assert_num_embeddings_matches_num_tables(
+                batch_tables, table_embeddings
+            )
+
+            assert_num_embeddings_matches_num_tables(
+                cls_positions, table_embeddings
+            )
+
+            # Passing in positions of [CLS] tokens should yield the same results
+            same_table_embeddings = self.model_wrapper.infer_embeddings(
+                encoded_inputs, cls_positions
+            )
+
+            assert torch.equal(table_embeddings, same_table_embeddings)
 
     # def test_infer_cell_embeddings(self):
     #     def assert_num_cells_matches_num_embeddings(
