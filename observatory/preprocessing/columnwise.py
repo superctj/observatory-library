@@ -152,7 +152,8 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
         for tbl in tables:
             # Truncate tables to fit within the maximum model input size
             truncated_tbl = self.truncate_columnwise(tbl)
-            # Apply the text template
+
+            # Serialize the table by applying the text template
             templated_cols = self.apply_text_template(truncated_tbl)
 
             # Serialize each row to a sequence of tokens
@@ -305,7 +306,9 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
 
         return templated_cols
 
-    def serialize_columnwise(self, tables: list[pd.DataFrame]) -> dict:
+    def serialize_columnwise(
+        self, tables: list[pd.DataFrame]
+    ) -> tuple[dict, list[list[int]]]:
         """Batch serialize a list of tables columnwise to a sequence of tokens.
 
         Args:
@@ -315,6 +318,8 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
         Returns:
             encoded_inputs:
                 A dictionary containing encoded inputs.
+            batch_cls_positions:
+                Lists of positions of [CLS] tokens in each serialized sequence.
         """
 
         templated_cols = []
@@ -326,4 +331,6 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
             templated_cols, padding=True, truncation=True, return_tensors="pt"
         )
 
-        return encoded_inputs
+        batch_cls_positions = [[0] * len(templated_cols)]
+
+        return encoded_inputs, batch_cls_positions
