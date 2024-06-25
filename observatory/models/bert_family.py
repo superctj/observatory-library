@@ -32,173 +32,23 @@ class BERTFamilyModelWrapper(ModelWrapper):
     def get_max_input_size(self) -> int:
         return self.model.config.max_position_embeddings
 
-    # def serialize_cellwise(
-    #     self,
-    #     table: pd.DataFrame,
-    #     by_row: bool = True,
-    #     include_headers: bool = True,
-    # ) -> tuple[list[str], list[tuple[int]]]:
-    #     """Serialize a table for inferring the cell embeddings.
-
-    #     Args:
-    #         table:
-    #             A pandas DataFrame representing a table.
-    #         by_row:
-    #             Whether to serialize by row or by column.
-    #         include_headers:
-    #             Whether to include column headers in the serialized table.
-
-    #     Returns:
-    #         input_tokens:
-    #             A list of tokens representing the serialized table.
-    #         cell_positions:
-    #             A list of tuples representing the start (inclusive) and end
-    #             (non-inclusive) positions of cell tokens.
-    #     """
-
-    #     input_tokens = [self.tokenizer.cls_token]
-    #     cell_positions = []
-
-    #     if by_row:
-    #         cell_lists = convert_table_to_cell_lists_rowwise(
-    #             table, include_headers
-    #         )
-
-    #         if include_headers:
-    #             for row_cells in cell_lists:
-    #                 # The number of cells should match the number of headers
-    #                 assert len(row_cells) % 2 == 0
-
-    #                 for i in range(0, len(row_cells), 2):
-    #                     header = row_cells[i]
-    #                     cell = row_cells[i + 1]
-
-    #                     input_tokens += self.tokenizer.tokenize(header)
-    #                     start = len(input_tokens)
-    #                     input_tokens += self.tokenizer.tokenize(cell)
-    #                     cell_positions.append((start, len(input_tokens)))
-    #         else:
-    #             for row_cells in cell_lists:
-    #                 for cell in row_cells:
-    #                     start = len(input_tokens)
-    #                     input_tokens += self.tokenizer.tokenize(cell)
-    #                     cell_positions.append((start, len(input_tokens)))
-    #     else:
-    #         cell_lists = convert_table_to_cell_lists_columnwise(
-    #             table, include_headers
-    #         )
-
-    #         for col_cells in cell_lists:
-    #             if include_headers:
-    #                 col_header = col_cells[0]
-    #                 col_cells = col_cells[1:]
-
-    #                 input_tokens += self.tokenizer.tokenize(col_header)
-
-    #             for cell in col_cells:
-    #                 start = len(input_tokens)
-    #                 input_tokens += self.tokenizer.tokenize(cell)
-    #                 cell_positions.append((start, len(input_tokens)))
-
-    #     input_tokens += [self.tokenizer.sep_token]
-
-    #     if len(input_tokens) > self.max_input_size:
-    #         raise ValueError(
-    #             f"The length of the serialized table ({len(input_tokens)}) "
-    #             f"exceeds the maximum input size ({self.max_input_size}). "
-    #             "Preprocess the table to fit the model input size."
-    #         )
-
-    #     if len(input_tokens) < self.max_input_size:
-    #         pad_length = self.max_input_size - len(input_tokens)
-    #         input_tokens += [self.tokenizer.pad_token] * pad_length
-
-    #     return input_tokens, cell_positions
-
-    # def infer_cell_embeddings(
-    #     self,
-    #     tables: list[pd.DataFrame],
-    #     serialize_by_row: bool,
-    #     include_headers: bool,
-    #     batch_size: int,
-    # ):
-    #     """Cell embedding inference.
-
-    #     Args:
-    #         tables:
-    #             A list of tables.
-    #         serialize_by_row:
-    #             Whether to serialize the tables by row (if false, tables will
-    #             be serialized by column).
-    #         include_headers:
-    #             Whether to include column headers in the serialized table.
-    #         batch_size:
-    #             The batch size for inference.
-
-    #     Returns:
-    #         all_embeddings:
-    #             A list of lists of cell embeddings where each inner list
-    #             corresponds to a table.
-
-    #     """
-
-    #     num_tables = len(tables)
-    #     all_embeddings = []
-
-    #     batch_input_ids = []
-    #     batch_attention_masks = []
-    #     batch_cell_positions = []
-
-    #     for tbl_idx, tbl in enumerate(tables):
-    #         input_tokens, cell_positions = self.serialize_cellwise(
-    #             tbl, by_row=serialize_by_row, include_headers=include_headers
-    #         )
-
-    #         input_ids = self.tokenizer.convert_tokens_to_ids(input_tokens)
-    #         attention_mask = [
-    #             1 if token != self.tokenizer.pad_token else 0
-    #             for token in input_tokens
-    #         ]
-
-    #         batch_input_ids.append(torch.tensor(input_ids))
-    #         batch_attention_masks.append(torch.tensor(attention_mask))
-    #         batch_cell_positions.append(cell_positions)
-
-    #         if len(batch_input_ids) == batch_size or tbl_idx + 1 == num_tables:
-    #             batch_input_ids_tensor = torch.stack(batch_input_ids, dim=0).to(
-    #                 self.device
-    #             )
-    #             batch_attention_masks_tensor = torch.stack(
-    #                 batch_attention_masks, dim=0
-    #             ).to(self.device)
-
-    #             with torch.no_grad():
-    #                 outputs = self.model(
-    #                     input_ids=batch_input_ids_tensor,
-    #                     attention_mask=batch_attention_masks_tensor,
-    #                 )
-
-    #             batch_last_hidden_state = outputs.last_hidden_state
-
-    #             for i, last_hidden_state in enumerate(batch_last_hidden_state):
-    #                 cell_embeddings = []
-
-    #                 for pos in batch_cell_positions[i]:
-    #                     cell_embeddings.append(
-    #                         torch.mean(
-    #                             last_hidden_state[pos[0] : pos[1], :], dim=0
-    #                         )
-    #                     )
-
-    #                 all_embeddings.append(cell_embeddings)
-
-    #     return all_embeddings
-
     def infer_embeddings(
         self,
         encoded_inputs: dict,
         cls_positions: list[list[int]] = None,
     ) -> torch.FloatTensor:
+        """Infer embeddings from [CLS] tokens.
+
+        Args:
+            encoded_inputs:
+                A dictionary of encoded inputs.
+            cls_positions:
+                Positions of [CLS] tokens per table.
+
+        Returns:
+            embeddings:
+                A tensor of shape (<number of embeddings>, <embedding size>).
+        """
 
         for key in encoded_inputs:
             encoded_inputs[key] = encoded_inputs[key].to(self.device)
@@ -241,7 +91,7 @@ class BERTFamilyModelWrapper(ModelWrapper):
         batch_size: int,
         cls_positions: list[list[int]] = None,
     ) -> torch.FloatTensor:
-        """Infer embeddings in batches.
+        """Infer embeddings in batches from [CLS] tokens.
 
         Args:
             encoded_inputs:
@@ -253,7 +103,7 @@ class BERTFamilyModelWrapper(ModelWrapper):
 
         Returns:
             embeddings:
-                A tensor of embeddings or a list of tensors of embeddings.
+                A tensor of shape (<number of embeddings>, <embedding size>).
         """
 
         num_inputs = encoded_inputs["input_ids"].shape[0]
@@ -287,6 +137,54 @@ class BERTFamilyModelWrapper(ModelWrapper):
             embeddings[start:end] = batch_embeddings
 
         return embeddings
+
+    def infer_embeddings_by_averaging_tokens(
+        self,
+        encoded_inputs: dict,
+        span_positions: list[list[tuple[int]]],
+    ) -> list[torch.FloatTensor]:
+        """Infer embeddings by averaging embeddings of tokens in each span. For
+        example, cell embeddings are obtained by averaging embeddings of tokens
+        in each cell span.
+
+        Args:
+            encoded_inputs:
+                A dictionary of encoded inputs.
+            span_positions:
+                Lists of token spans in each sequence. Each span is represented
+                as a tuple of start (inclusive) and end (non-inclusive) indices.
+
+        Returns:
+            embeddings_per_table:
+                A list of tensors of shape (<number of embeddings>, <embedding
+                size>) and each tensor corresponds to a table.
+        """
+
+        embeddings_per_table = []
+
+        for key in encoded_inputs:
+            encoded_inputs[key] = encoded_inputs[key].to(self.device)
+
+        with torch.no_grad():
+            outputs = self.model(**encoded_inputs)
+
+        batch_last_hidden_state = outputs.last_hidden_state
+
+        for i, last_hidden_state in enumerate(batch_last_hidden_state):
+            embeddings = torch.zeros(
+                len(span_positions[i]),
+                self.model.config.hidden_size,
+                dtype=torch.float,
+            )
+
+            for j, span in enumerate(span_positions[i]):
+                embeddings[j] = torch.mean(
+                    last_hidden_state[span[0] : span[1], :], dim=0
+                )
+
+            embeddings_per_table.append(embeddings)
+
+        return embeddings_per_table
 
 
 class BertModelWrapper(BERTFamilyModelWrapper):
