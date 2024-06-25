@@ -274,7 +274,7 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
         if not table_name and self.include_table_name:
             raise ValueError(
                 "Table name is missing while `include_table_name` is set to "
-                "True` when initializing the preprocessor."
+                "True when initializing the preprocessor."
             )
 
         sorted_values_per_column = self.get_sorted_values_per_column(table)
