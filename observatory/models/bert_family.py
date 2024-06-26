@@ -19,6 +19,9 @@ class BERTFamilyModelWrapper(ModelWrapper):
     obtained from the model config.
     """
 
+    def __init__(self, model_name: str, device: torch.device):
+        super().__init__(model_name, device)
+
     def get_tokenizer(self) -> AutoTokenizer:
         try:
             tokenizer = AutoTokenizer.from_pretrained(
@@ -31,6 +34,9 @@ class BERTFamilyModelWrapper(ModelWrapper):
 
     def get_max_input_size(self) -> int:
         return self.model.config.max_position_embeddings
+
+    def get_embedding_dimension(self) -> int:
+        return self.model.config.hidden_size
 
     def infer_embeddings(
         self,

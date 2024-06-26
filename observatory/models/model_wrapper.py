@@ -40,6 +40,11 @@ class ModelWrapper(ABC):
         pass
 
     @abstractmethod
+    def get_embedding_dimension(self):
+        """Get the embedding dimension of the model."""
+        pass
+
+    @abstractmethod
     def infer_embeddings(self):
         pass
 
