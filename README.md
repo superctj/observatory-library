@@ -100,7 +100,7 @@ We currently support the following preprocessors:
 ### Easy integration with Hugging Face models
 We currently support any BERT-like encoder model including BERT, RoBERTa and ALBERT. To extend the support to other models, simply implement a wrapper class that inherits from `BERTFamilyModelWrapper` and implements the `get_model` method. For example,
 
-```
+```python
 from transformers import AlbertModel
 
 class AlbertModelWrapper(BERTFamilyModelWrapper):
