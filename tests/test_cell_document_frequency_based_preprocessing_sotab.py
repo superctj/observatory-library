@@ -8,10 +8,10 @@ from torch.utils.data import DataLoader
 from observatory.datasets.sotab import SotabDataset, collate_fn
 from observatory.models.bert_family import BertModelWrapper
 from observatory.preprocessing.columnwise import (
-    ColumnwiseDocumentFrequencyBasedPreprocessor,
+    ColumnwiseCellDocumentFrequencyBasedPreprocessor,
 )
 from observatory.utils.test_util import (
-    assert_num_embeddings_matches_number_columns,
+    assert_num_embeddings_matches_num_columns,
 )
 
 
@@ -23,6 +23,11 @@ class TestBertEmbeddingInference(unittest.TestCase):
         )
         metadata_filepath = os.path.join(data_dir, "table_inventory.csv")
         sotab_dataset = SotabDataset(data_dir, metadata_filepath)
+
+        # Compute cell document frequencies
+        self.cell_frequencies = (
+            sotab_dataset.compute_cell_document_frequencies()
+        )
 
         # The preprocessor below serializes each column to a sequence as input
         # to the model, so `inference_batch_size` can be different from
@@ -41,31 +46,28 @@ class TestBertEmbeddingInference(unittest.TestCase):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_wrapper = BertModelWrapper(model_name, device)
 
-        # Cell document frequency-based preprocessor for inferring column
-        # embeddings
-        cell_frequencies = sotab_dataset.compute_cell_document_frequencies()
-        self.columnwise_preprocessor = (
-            ColumnwiseDocumentFrequencyBasedPreprocessor(
+    def test_infer_column_embeddings(self):
+        # Create cell document frequency-based preprocessor for inferring
+        # column embeddings
+        columnwise_preprocessor = (
+            ColumnwiseCellDocumentFrequencyBasedPreprocessor(
                 tokenizer=self.model_wrapper.tokenizer,
                 max_input_size=self.model_wrapper.max_input_size,
-                cell_frequencies=cell_frequencies,
+                cell_frequencies=self.cell_frequencies,
                 include_table_name=True,
                 include_column_names=True,
                 include_column_stats=True,
             )
         )
 
-    def test_infer_column_embeddings(self):
         for batch_tables in self.sotab_dataloader:
-            encoded_inputs = self.columnwise_preprocessor.serialize_columnwise(
-                batch_tables
-            )
+            encoded_inputs, _ = columnwise_preprocessor.serialize(batch_tables)
 
             column_embeddings = self.model_wrapper.batch_infer_embeddings(
                 encoded_inputs, batch_size=self.inference_batch_size
             )
 
-            assert_num_embeddings_matches_number_columns(
+            assert_num_embeddings_matches_num_columns(
                 batch_tables, column_embeddings
             )
 
