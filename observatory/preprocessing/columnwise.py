@@ -207,7 +207,7 @@ class ColumnwiseMaxRowsPreprocessor(PreprocessingWrapper):
         return encoded_inputs, batch_cls_positions
 
 
-class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
+class ColumnwiseCellDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
     """Frequency-based columnwise preprocessing from Dong et al. DeepJoin
     (https://www.vldb.org/pvldb/vol16/p2458-dong.pdf).
 
@@ -306,7 +306,7 @@ class ColumnwiseDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
 
         return templated_cols
 
-    def serialize_columnwise(
+    def serialize(
         self, tables: list[pd.DataFrame]
     ) -> tuple[dict, list[list[int]]]:
         """Batch serialize a list of tables columnwise to a sequence of tokens.
