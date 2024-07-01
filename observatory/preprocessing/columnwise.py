@@ -318,7 +318,7 @@ class ColumnwiseCellDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
         Returns:
             encoded_inputs:
                 A dictionary containing encoded inputs.
-            batch_cls_positions:
+            cls_positions:
                 Lists of positions of [CLS] tokens in each serialized sequence.
         """
 
@@ -331,6 +331,7 @@ class ColumnwiseCellDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
             templated_cols, padding=True, truncation=True, return_tensors="pt"
         )
 
-        batch_cls_positions = [[0] * len(templated_cols)]
+        cls_positions = [[0]] * len(templated_cols)
+        assert encoded_inputs["input_ids"].shape[0] == len(cls_positions)
 
-        return encoded_inputs, batch_cls_positions
+        return encoded_inputs, cls_positions
