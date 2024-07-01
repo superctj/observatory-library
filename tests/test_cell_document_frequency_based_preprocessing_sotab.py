@@ -5,6 +5,10 @@ import torch
 
 from torch.utils.data import DataLoader
 
+from observatory.datasets.sequence import (
+    EncodedInputsDataset,
+    encoded_inputs_collate_fn,
+)
 from observatory.datasets.sotab import SotabDataset, collate_fn
 from observatory.models.bert_family import BertModelWrapper
 from observatory.preprocessing.columnwise import (
@@ -61,15 +65,35 @@ class TestBertEmbeddingInference(unittest.TestCase):
         )
 
         for batch_tables in self.sotab_dataloader:
-            encoded_inputs, _ = columnwise_preprocessor.serialize(batch_tables)
-
-            column_embeddings = self.model_wrapper.batch_infer_embeddings(
-                encoded_inputs, batch_size=self.inference_batch_size
+            encoded_inputs, cls_positions = columnwise_preprocessor.serialize(
+                batch_tables
             )
 
-            assert_num_embeddings_matches_num_columns(
-                batch_tables, column_embeddings
+            encoded_inputs_dataset = EncodedInputsDataset(
+                encoded_inputs, cls_positions
             )
+            encoded_inputs_dataloader = DataLoader(
+                encoded_inputs_dataset,
+                batch_size=self.inference_batch_size,
+                collate_fn=encoded_inputs_collate_fn,
+            )
+
+            for (
+                batch_encoded_inputs,
+                batch_cls_positions,
+            ) in encoded_inputs_dataloader:
+                column_embeddings = self.model_wrapper.infer_embeddings(
+                    batch_encoded_inputs, batch_cls_positions
+                )
+
+                assert_num_embeddings_matches_num_columns(
+                    column_embeddings, num_columns=len(batch_cls_positions)
+                )
+
+                assert_num_embeddings_matches_num_columns(
+                    column_embeddings,
+                    num_columns=batch_encoded_inputs["input_ids"].shape[0],
+                )
 
     def test_infer_row_embeddings(self):
         pass

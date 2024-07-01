@@ -59,7 +59,7 @@ class TestBertEmbeddingInference(unittest.TestCase):
             )
 
             assert_num_embeddings_matches_num_columns(
-                batch_tables, column_embeddings
+                column_embeddings, tables=batch_tables
             )
 
     def test_infer_row_embeddings(self):
@@ -192,7 +192,7 @@ class TestRobertaEmbeddingInference(unittest.TestCase):
             )
 
             assert_num_embeddings_matches_num_columns(
-                batch_tables, column_embeddings
+                column_embeddings, tables=batch_tables
             )
 
     def test_infer_row_embeddings(self):
@@ -325,7 +325,7 @@ class TestAlbertEmbeddingInference(unittest.TestCase):
             )
 
             assert_num_embeddings_matches_num_columns(
-                batch_tables, column_embeddings
+                column_embeddings, tables=batch_tables
             )
 
     def test_infer_row_embeddings(self):
