@@ -5,24 +5,31 @@ import torch
 
 
 def assert_num_embeddings_matches_num_columns(
-    tables: list[pd.DataFrame],
     embeddings: torch.FloatTensor,
+    num_columns: int = None,
+    tables: list[pd.DataFrame] = None,
 ):
     """Assert the number of embeddings matches the total number of columns.
 
     Args:
-        tables:
-            A list of tables.
         embeddings:
             Column embeddings of shape (<num_embeddings>, <embedding size>).
+        num_columns (optional):
+            Number of columns.
+        tables (optional):
+            A list of tables.
     """
 
-    num_columns = 0
+    if num_columns:
+        assert embeddings.shape[0] == num_columns
+    else:
+        assert tables is not None
 
-    for tbl in tables:
-        num_columns += tbl.shape[1]
+        num_columns = 0
+        for tbl in tables:
+            num_columns += tbl.shape[1]
 
-    assert embeddings.shape[0] == num_columns
+        assert embeddings.shape[0] == num_columns
 
 
 def assert_num_embeddings_matches_num_rows(
