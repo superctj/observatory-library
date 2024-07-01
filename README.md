@@ -20,14 +20,11 @@ Assume using [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/) fo
     conda activate observatory
     ```
 
-    If you have access to GPUs, install the GPU environment:
+    If you have access to GPUs, install the corresponding GPU environment:
     ```
-    conda env create -f cuda_11.8_environment.yml
+    conda env create -f cuda_<11.8/12.1>_environment.yml
     conda activate observatory
     ```
-
-    We will provide the environment file for cuda 12.x soon.
-
 
 ### Install from Conda
 Coming soon after beta-test.
