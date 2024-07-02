@@ -36,8 +36,8 @@ class TestBertEmbeddingInference(unittest.TestCase):
         # The preprocessor below serializes each column to a sequence as input
         # to the model, so `inference_batch_size` can be different from
         # `table_batch_size` used in the table data loader.
-        table_batch_size = 4
-        self.inference_batch_size = 16
+        table_batch_size = 64
+        self.inference_batch_size = 256
 
         self.sotab_dataloader = DataLoader(
             sotab_dataset,
