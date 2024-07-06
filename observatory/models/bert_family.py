@@ -91,59 +91,6 @@ class BERTFamilyModelWrapper(ModelWrapper):
 
         return embeddings
 
-    def batch_infer_embeddings(
-        self,
-        encoded_inputs: dict,
-        batch_size: int,
-        cls_positions: list[list[int]] = None,
-    ) -> torch.FloatTensor:
-        """Infer embeddings in batches from [CLS] tokens.
-
-        Args:
-            encoded_inputs:
-                A dictionary of encoded inputs.
-            batch_size:
-                The batch size for inference.
-            cls_positions:
-                Positions of [CLS] tokens per table.
-
-        Returns:
-            embeddings:
-                A tensor of shape (<number of embeddings>, <embedding size>).
-        """
-
-        num_inputs = encoded_inputs["input_ids"].shape[0]
-        embeddings = torch.zeros(
-            (num_inputs, self.model.config.hidden_size), dtype=torch.float
-        )
-
-        num_batches = (
-            num_inputs // batch_size
-            if num_inputs % batch_size == 0
-            else num_inputs // batch_size + 1
-        )
-
-        for i in range(num_batches):
-            start = i * batch_size
-            end = (i + 1) * batch_size
-
-            batch_encoded_inputs = {
-                key: value[start:end] for key, value in encoded_inputs.items()
-            }
-
-            if cls_positions:
-                batch_cls_positions = cls_positions[start:end]
-            else:
-                batch_cls_positions = None
-
-            batch_embeddings = self.infer_embeddings(
-                batch_encoded_inputs, batch_cls_positions
-            )
-
-            embeddings[start:end] = batch_embeddings
-
-        return embeddings
-
     def infer_embeddings_by_averaging_tokens(
         self,
         encoded_inputs: dict,
@@ -162,8 +109,8 @@ class BERTFamilyModelWrapper(ModelWrapper):
 
         Returns:
             embeddings_per_table:
-                A list of tensors of shape (<number of embeddings>, <embedding
-                size>) and each tensor corresponds to a table.
+                A list of tensors of shape (<number of cells>, <embedding size)
+                where each tensor corresponds to a table.
         """
 
         embeddings_per_table = []
