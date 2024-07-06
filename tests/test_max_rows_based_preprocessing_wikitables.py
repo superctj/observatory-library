@@ -27,17 +27,16 @@ class TestBertEmbeddingInference(unittest.TestCase):
         )
         metadata_filepath = os.path.join(data_dir, "table_inventory.csv")
         wikitables_dataset = WikiTablesDataset(data_dir, metadata_filepath)
-
-        model_name = "google-bert/bert-base-uncased"
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        self.model_wrapper = BertModelWrapper(model_name, device)
         self.wikitables_dataloader = DataLoader(
             wikitables_dataset,
             batch_size=4,
             shuffle=False,
             collate_fn=collate_fn,
         )
+
+        model_name = "google-bert/bert-base-uncased"
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model_wrapper = BertModelWrapper(model_name, device)
 
     def test_infer_column_embeddings(self):
         # Max rows-based preprocessor for inferring column embeddings
@@ -80,7 +79,7 @@ class TestBertEmbeddingInference(unittest.TestCase):
             )
 
             assert_num_embeddings_matches_num_rows(
-                cls_positions, row_embeddings
+                row_embeddings, cls_positions=cls_positions
             )
 
     def test_infer_table_embeddings(self):
@@ -107,11 +106,11 @@ class TestBertEmbeddingInference(unittest.TestCase):
                 )
 
                 assert_num_embeddings_matches_num_tables(
-                    batch_tables, table_embeddings
+                    table_embeddings, len(batch_tables)
                 )
 
                 assert_num_embeddings_matches_num_tables(
-                    cls_positions, table_embeddings
+                    table_embeddings, len(cls_positions)
                 )
 
                 # Passing in positions of [CLS] tokens should yield the same
@@ -160,17 +159,16 @@ class TestRobertaEmbeddingInference(unittest.TestCase):
         )
         metadata_filepath = os.path.join(data_dir, "table_inventory.csv")
         wikitables_dataset = WikiTablesDataset(data_dir, metadata_filepath)
-
-        model_name = "FacebookAI/roberta-base"
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        self.model_wrapper = BertModelWrapper(model_name, device)
         self.wikitables_dataloader = DataLoader(
             wikitables_dataset,
             batch_size=4,
             shuffle=False,
             collate_fn=collate_fn,
         )
+
+        model_name = "FacebookAI/roberta-base"
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model_wrapper = BertModelWrapper(model_name, device)
 
     def test_infer_column_embeddings(self):
         # Max rows-based preprocessor for inferring column embeddings
@@ -209,11 +207,11 @@ class TestRobertaEmbeddingInference(unittest.TestCase):
             )
 
             row_embeddings = self.model_wrapper.infer_embeddings(
-                encoded_inputs, cls_positions
+                encoded_inputs, cls_positions=cls_positions
             )
 
             assert_num_embeddings_matches_num_rows(
-                cls_positions, row_embeddings
+                row_embeddings, cls_positions=cls_positions
             )
 
     def test_infer_table_embeddings(self):
@@ -240,11 +238,11 @@ class TestRobertaEmbeddingInference(unittest.TestCase):
                 )
 
                 assert_num_embeddings_matches_num_tables(
-                    batch_tables, table_embeddings
+                    table_embeddings, len(batch_tables)
                 )
 
                 assert_num_embeddings_matches_num_tables(
-                    cls_positions, table_embeddings
+                    table_embeddings, len(cls_positions)
                 )
 
                 # Passing in positions of [CLS] tokens should yield the same
@@ -293,17 +291,16 @@ class TestAlbertEmbeddingInference(unittest.TestCase):
         )
         metadata_filepath = os.path.join(data_dir, "table_inventory.csv")
         wikitables_dataset = WikiTablesDataset(data_dir, metadata_filepath)
-
-        model_name = "albert/albert-base-v2"
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        self.model_wrapper = BertModelWrapper(model_name, device)
         self.wikitables_dataloader = DataLoader(
             wikitables_dataset,
             batch_size=4,
             shuffle=False,
             collate_fn=collate_fn,
         )
+
+        model_name = "albert/albert-base-v2"
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model_wrapper = BertModelWrapper(model_name, device)
 
     def test_infer_column_embeddings(self):
         # Max rows-based preprocessor for inferring column embeddings
@@ -346,7 +343,7 @@ class TestAlbertEmbeddingInference(unittest.TestCase):
             )
 
             assert_num_embeddings_matches_num_rows(
-                cls_positions, row_embeddings
+                row_embeddings, cls_positions=cls_positions
             )
 
     def test_infer_table_embeddings(self):
@@ -373,11 +370,11 @@ class TestAlbertEmbeddingInference(unittest.TestCase):
                 )
 
                 assert_num_embeddings_matches_num_tables(
-                    batch_tables, table_embeddings
+                    table_embeddings, len(batch_tables)
                 )
 
                 assert_num_embeddings_matches_num_tables(
-                    cls_positions, table_embeddings
+                    table_embeddings, len(cls_positions)
                 )
 
                 # Passing in positions of [CLS] tokens should yield the same
