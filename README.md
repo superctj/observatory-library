@@ -36,6 +36,10 @@ import os
 
 import torch
 
+from observatory.datasets.sequence import (
+    EncodedInputsDataset,
+    encoded_inputs_collate_fn,
+)
 from observatory.datasets.sotab import SotabDataset, collate_fn
 from observatory.models.bert_family import BertModelWrapper
 from observatory.preprocessing.columnwise import (
@@ -44,18 +48,18 @@ from observatory.preprocessing.columnwise import (
 from torch.utils.data import DataLoader
 
 # Initialize data (the metadata file simply lists all the table file names)
-data_dir = "./tests/sample_data/wiki_tables"
+data_dir = "./tests/sample_data/sotab"
 metadata_filepath = os.path.join(data_dir, "table_inventory.csv")
 sotab_dataset = SotabDataset(data_dir, metadata_filepath)
 
 sotab_dataloader = DataLoader(
     sotab_dataset,
-    batch_size=4,  # batch size for loading tables
+    batch_size=16,  # batch size for loading tables
     shuffle=False,
     collate_fn=collate_fn,
 )
 
-# Initialize model
+# Initialize pretrained model
 model_name = "bert-base-uncased"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_wrapper = BertModelWrapper(model_name, device)
@@ -71,13 +75,27 @@ columnwise_preprocessor = ColumnwiseCellDocumentFrequencyBasedPreprocessor(
     include_column_stats=True,
 )
 
-# Infer column embeddings
+# Batch loading tables
 for batch_tables in sotab_dataloader:
-    encoded_inputs, _ = columnwise_preprocessor.serialize(batch_tables)
-
-    column_embeddings = model_wrapper.batch_infer_embeddings(
-        encoded_inputs, batch_size=16  # batch size for embedding inference
+    # Each column is serialized to a sequence of tokens
+    encoded_inputs, cls_positions = columnwise_preprocessor.serialize(
+        batch_tables
     )
+    
+    # Batch embedding inference
+    encoded_inputs_dataset = EncodedInputsDataset(
+        encoded_inputs, cls_positions
+    )
+    encoded_inputs_dataloader = DataLoader(
+        encoded_inputs_dataset,
+        batch_size=64,  # batch size for embedding inference
+        collate_fn=encoded_inputs_collate_fn,
+    )
+
+    for batch_encoded_inputs, batch_cls_positions in encoded_inputs_dataloader:
+        column_embeddings = self.model_wrapper.infer_embeddings(
+            batch_encoded_inputs, batch_cls_positions
+        )
 ```
 
 You can find more examples of embedding inference in the `tests` directory.
