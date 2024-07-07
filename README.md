@@ -1,7 +1,7 @@
 # Observatory
 A Python library for embedding inference of relational tabular data. This repository evolves from the [codebase](https://github.com/superctj/observatory/tree/main) of our VLDB 2024 paper [Observatory: Characterizing Embeddings of Relational Tables](https://www.vldb.org/pvldb/vol17/p849-cong.pdf).
 
-We are open-sourcing Observatory library for beta-test. The library is under active development and we welcome feedback and contributions. Please feel free to open an issue or submit a pull request.
+We are open-sourcing Observatory for a beta test. The library is under active development and we welcome feedback and contributions. Please feel free to open an issue or submit a pull request. Once APIs become stable, we will release the library on `conda` and `pip`.
 
 ## Installation
 
@@ -41,7 +41,7 @@ from observatory.datasets.sequence import (
     encoded_inputs_collate_fn,
 )
 from observatory.datasets.sotab import SotabDataset, collate_fn
-from observatory.models.bert_family import BertModelWrapper
+from observatory.models.encoder import BertModelWrapper
 from observatory.preprocessing.columnwise import (
     ColumnwiseCellDocumentFrequencyBasedPreprocessor,
 )
