@@ -15,8 +15,16 @@ class BERTFamilyModelWrapper(ModelWrapper):
     attributes `cls_token`, `sep_token`, and `pad_token`.
 
     To use this class, inherit from it and implement the `get_model` method.
-    Override the `get_max_input_size` method if the model input size cannot be
-    obtained from the model config.
+    Override other methods if necessary. Specifically:
+
+    - Override the `get_tokenizer` method if the tokenizer cannot be initiated
+    from `AutoTokenizer`.
+
+    - Override the `get_max_input_size` method if the model input size cannot be
+    obtained from `model.config.max_position_embeddings`.
+
+    - Override the `get_embedding_dimension` method if the model embedding size
+    cannot be obtained from `model.config.hidden_size`.
     """
 
     def __init__(self, model_name: str, device: torch.device):
