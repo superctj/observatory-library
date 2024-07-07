@@ -22,6 +22,10 @@ class BERTFamilyModelWrapper(ModelWrapper):
     def __init__(self, model_name: str, device: torch.device):
         super().__init__(model_name, device)
 
+        # Table serialization and encoding require [CLS] and [SEP] tokens
+        assert self.tokenizer.cls_token is not None
+        assert self.tokenizer.sep_token is not None
+
     def get_tokenizer(self) -> AutoTokenizer:
         try:
             tokenizer = AutoTokenizer.from_pretrained(

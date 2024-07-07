@@ -6,7 +6,11 @@ import torch
 from torch.utils.data import DataLoader
 
 from observatory.datasets.wikitables import WikiTablesDataset, collate_fn
-from observatory.models.bert_family import BertModelWrapper
+from observatory.models.encoder import (
+    AlbertModelWrapper,
+    BertModelWrapper,
+    RobertaModelWrapper,
+)
 from observatory.preprocessing.cellwise import CellwiseMaxRowsPreprocessor
 from observatory.preprocessing.columnwise import ColumnwiseMaxRowsPreprocessor
 from observatory.preprocessing.rowwise import RowwiseMaxRowsPreprocessor
@@ -168,7 +172,7 @@ class TestRobertaEmbeddingInference(unittest.TestCase):
 
         model_name = "FacebookAI/roberta-base"
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model_wrapper = BertModelWrapper(model_name, device)
+        self.model_wrapper = RobertaModelWrapper(model_name, device)
 
     def test_infer_column_embeddings(self):
         # Max rows-based preprocessor for inferring column embeddings
@@ -300,7 +304,7 @@ class TestAlbertEmbeddingInference(unittest.TestCase):
 
         model_name = "albert/albert-base-v2"
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model_wrapper = BertModelWrapper(model_name, device)
+        self.model_wrapper = AlbertModelWrapper(model_name, device)
 
     def test_infer_column_embeddings(self):
         # Max rows-based preprocessor for inferring column embeddings

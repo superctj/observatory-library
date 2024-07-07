@@ -10,7 +10,7 @@ from observatory.datasets.sequence import (
     encoded_inputs_collate_fn,
 )
 from observatory.datasets.sotab import SotabDataset, collate_fn
-from observatory.models.bert_family import BertModelWrapper
+from observatory.models.encoder import BertModelWrapper
 from observatory.preprocessing.columnwise import (
     ColumnwiseCellDocumentFrequencyBasedPreprocessor,
 )
