@@ -45,7 +45,3 @@ class ModelWrapper(ABC):
     @abstractmethod
     def infer_embeddings(self):
         pass
-
-    @abstractmethod
-    def infer_embeddings_by_averaging_tokens(self):
-        pass
