@@ -99,7 +99,11 @@ class BERTFamilyModelWrapper(ModelWrapper):
             "`embeddings` should be a 2D tensor but has "
             f"{cls_embeddings.dim()} dimensions."
         )
-        assert embeddings.shape[1] == self.model.config.hidden_size
+        assert embeddings.shape[1] == self.get_embedding_dimension(), (
+            "The second dimension  of `embeddings` has an unexpected size of "
+            f"{embeddings.shape[1]} while the expected size is "
+            f"{self.model.get_embedding_dimension()}."
+        )
 
         return embeddings
 
