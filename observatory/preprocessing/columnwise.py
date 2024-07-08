@@ -278,7 +278,6 @@ class ColumnwiseCellDocumentFrequencyBasedPreprocessor(PreprocessingWrapper):
             )
 
         sorted_values_per_column = self.get_sorted_values_per_column(table)
-
         templated_cols = []
 
         for i, col_values in enumerate(sorted_values_per_column):
